@@ -2,39 +2,49 @@
 
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, Zap, Box, User } from "lucide-react";
+import { ArrowLeft, Zap, Box } from "lucide-react";
 
 export default function SettingsPage() {
   return (
-    <div className="min-h-screen bg-[hsl(var(--background))] p-4 md:p-8">
-      <div className="max-w-4xl mx-auto">
-        <div className="flex items-center gap-3 mb-6">
+    <div className="min-h-screen bg-background p-4 md:p-8">
+      <div className="max-w-2xl mx-auto">
+        <div className="flex items-center gap-3 mb-8">
           <Link href="/">
-            <Button variant="ghost" size="icon">
+            <Button variant="ghost" size="icon" className="h-9 w-9 rounded-lg min-h-[40px] min-w-[40px]">
               <ArrowLeft className="h-4 w-4" />
             </Button>
           </Link>
-          <h1 className="text-2xl font-bold">Settings</h1>
+          <h1 className="text-xl font-semibold tracking-tight">Settings</h1>
         </div>
 
-        <div className="grid gap-4 md:grid-cols-2">
+        <div className="space-y-3">
           <Link href="/settings/providers">
-            <div className="border border-[hsl(var(--border))] rounded-lg p-5 bg-[hsl(var(--card))] hover:border-[hsl(var(--primary))]/50 transition-colors">
-              <Zap className="h-8 w-8 text-[hsl(var(--primary))] mb-3" />
-              <h3 className="font-semibold mb-1">Providers</h3>
-              <p className="text-sm text-[hsl(var(--muted-foreground))]">
-                Manage AI provider connections, API keys, and endpoints
-              </p>
+            <div className="flex items-center gap-4 p-4 rounded-2xl border border-border bg-card hover:border-primary/30 hover:bg-primary/[0.02] transition-all duration-200 group">
+              <div className="w-11 h-11 rounded-xl bg-primary/10 flex items-center justify-center flex-shrink-0">
+                <Zap className="h-5 w-5 text-primary" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <h3 className="font-medium text-sm">Providers</h3>
+                <p className="text-sm text-muted-foreground truncate">
+                  Manage AI provider connections, API keys, and endpoints
+                </p>
+              </div>
+              <ArrowLeft className="h-4 w-4 text-muted-foreground/40 rotate-180 group-hover:text-primary transition-colors flex-shrink-0" />
             </div>
           </Link>
 
           <Link href="/settings/models">
-            <div className="border border-[hsl(var(--border))] rounded-lg p-5 bg-[hsl(var(--card))] hover:border-[hsl(var(--primary))]/50 transition-colors">
-              <Box className="h-8 w-8 text-[hsl(var(--primary))] mb-3" />
-              <h3 className="font-semibold mb-1">Models</h3>
-              <p className="text-sm text-[hsl(var(--muted-foreground))]">
-                Add, edit, and organize AI models
-              </p>
+            <div className="flex items-center gap-4 p-4 rounded-2xl border border-border bg-card hover:border-primary/30 hover:bg-primary/[0.02] transition-all duration-200 group">
+              <div className="w-11 h-11 rounded-xl bg-primary/10 flex items-center justify-center flex-shrink-0">
+                <Box className="h-5 w-5 text-primary" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <h3 className="font-medium text-sm">Models</h3>
+                <p className="text-sm text-muted-foreground truncate">
+                  Add, edit, and organize AI models
+                </p>
+              </div>
+              <ArrowLeft className="h-4 w-4 text-muted-foreground/40 rotate-180 group-hover:text-primary transition-colors flex-shrink-0" />
             </div>
           </Link>
         </div>

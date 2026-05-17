@@ -24,7 +24,7 @@ export function MarkdownRenderer({ content }: MarkdownRendererProps) {
             if (isInline) {
               return (
                 <code
-                  className="px-1.5 py-0.5 rounded bg-muted text-sm font-mono"
+                  className="px-1.5 py-0.5 rounded-md bg-muted/80 text-sm font-mono border border-border/40"
                   {...props}
                 >
                   {children}
@@ -42,13 +42,16 @@ export function MarkdownRenderer({ content }: MarkdownRendererProps) {
             return <>{children}</>;
           },
           p({ children }) {
-            return <p className="mb-2 last:mb-0">{children}</p>;
+            return <p className="mb-2.5 last:mb-0">{children}</p>;
           },
           ul({ children }) {
-            return <ul className="list-disc pl-4 mb-2">{children}</ul>;
+            return <ul className="list-disc pl-5 mb-2.5 space-y-1">{children}</ul>;
           },
           ol({ children }) {
-            return <ol className="list-decimal pl-4 mb-2">{children}</ol>;
+            return <ol className="list-decimal pl-5 mb-2.5 space-y-1">{children}</ol>;
+          },
+          li({ children }) {
+            return <li className="leading-relaxed">{children}</li>;
           },
           a({ href, children }) {
             return (
@@ -56,7 +59,7 @@ export function MarkdownRenderer({ content }: MarkdownRendererProps) {
                 href={href}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="text-primary hover:underline"
+                className="text-primary hover:text-primary/80 hover:underline transition-colors"
               >
                 {children}
               </a>
@@ -64,8 +67,8 @@ export function MarkdownRenderer({ content }: MarkdownRendererProps) {
           },
           table({ children }) {
             return (
-              <div className="overflow-x-auto my-2">
-                <table className="border-collapse border border-border text-sm">
+              <div className="overflow-x-auto my-3 rounded-xl border border-border">
+                <table className="border-collapse text-sm w-full">
                   {children}
                 </table>
               </div>
@@ -73,13 +76,36 @@ export function MarkdownRenderer({ content }: MarkdownRendererProps) {
           },
           th({ children }) {
             return (
-              <th className="border border-border px-3 py-1.5 bg-muted">{children}</th>
+              <th className="border border-border px-3 py-2 bg-muted/60 text-left font-medium text-xs uppercase tracking-wider">
+                {children}
+              </th>
             );
           },
           td({ children }) {
             return (
-              <td className="border border-border px-3 py-1.5">{children}</td>
+              <td className="border border-border px-3 py-2">
+                {children}
+              </td>
             );
+          },
+          blockquote({ children }) {
+            return (
+              <blockquote className="border-l-[3px] border-primary/40 pl-4 py-1 my-3 text-muted-foreground italic">
+                {children}
+              </blockquote>
+            );
+          },
+          hr() {
+            return <hr className="my-4 border-border/60" />;
+          },
+          h1({ children }) {
+            return <h1 className="text-lg font-semibold mt-4 mb-2">{children}</h1>;
+          },
+          h2({ children }) {
+            return <h2 className="text-base font-semibold mt-3 mb-2">{children}</h2>;
+          },
+          h3({ children }) {
+            return <h3 className="text-sm font-semibold mt-3 mb-1.5">{children}</h3>;
           },
         }}
       >
@@ -99,22 +125,32 @@ function CodeBlock({ children, language }: { children: string; language: string 
   };
 
   return (
-    <div className="relative group my-2 rounded-lg overflow-hidden border border-border">
-      <div className="flex items-center justify-between px-3 py-1.5 bg-muted border-b border-border">
-        <span className="text-xs text-muted-foreground">{language || "code"}</span>
+    <div className="relative group my-3 rounded-xl overflow-hidden border border-border bg-card">
+      <div className="flex items-center justify-between px-4 py-2 bg-muted/40 border-b border-border/60">
+        <div className="flex items-center gap-2">
+          <span className="text-[11px] font-mono text-muted-foreground uppercase tracking-wider">
+            {language || "text"}
+          </span>
+        </div>
         <button
           onClick={handleCopy}
-          className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
+          className="inline-flex items-center gap-1.5 text-[11px] text-muted-foreground hover:text-foreground transition-colors px-2 py-1 rounded-md hover:bg-accent"
         >
           {copied ? (
-            <><Check className="h-3 w-3" /> Copied</>
+            <>
+              <Check className="h-3 w-3 text-green-400" />
+              <span>Copied</span>
+            </>
           ) : (
-            <><Copy className="h-3 w-3" /> Copy</>
+            <>
+              <Copy className="h-3 w-3" />
+              <span>Copy</span>
+            </>
           )}
         </button>
       </div>
-      <pre className="p-3 overflow-x-auto bg-background">
-        <code className="text-sm font-mono">{children}</code>
+      <pre className="p-4 overflow-x-auto">
+        <code className="text-[13px] font-mono leading-relaxed">{children}</code>
       </pre>
     </div>
   );

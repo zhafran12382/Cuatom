@@ -11,7 +11,6 @@ import {
   Plus,
   ArrowLeft,
   Zap,
-  ZapOff,
   Pencil,
   Trash2,
   TestTube,
@@ -19,6 +18,7 @@ import {
   CheckCircle,
   XCircle,
   Loader2,
+  Activity,
 } from "lucide-react";
 import Link from "next/link";
 import { toast } from "sonner";
@@ -57,7 +57,7 @@ export default function ProvidersPage() {
     try {
       await deleteProvider(id);
       toast.success("Provider deleted");
-    } catch (error) {
+    } catch {
       toast.error("Failed to delete provider");
     }
   };
@@ -107,82 +107,98 @@ export default function ProvidersPage() {
   };
 
   return (
-    <div className="min-h-screen bg-[hsl(var(--background))] p-4 md:p-8">
-      <div className="max-w-4xl mx-auto">
+    <div className="min-h-screen bg-background p-4 md:p-8">
+      <div className="max-w-3xl mx-auto">
         {/* Header */}
-        <div className="flex items-center gap-3 mb-6">
-          <Link href="/">
-            <Button variant="ghost" size="icon">
+        <div className="flex items-center gap-3 mb-8">
+          <Link href="/settings">
+            <Button variant="ghost" size="icon" className="h-9 w-9 rounded-lg min-h-[40px] min-w-[40px]">
               <ArrowLeft className="h-4 w-4" />
             </Button>
           </Link>
-          <div className="flex-1">
-            <h1 className="text-2xl font-bold">Providers</h1>
-            <p className="text-sm text-[hsl(var(--muted-foreground))]">
+          <div className="flex-1 min-w-0">
+            <h1 className="text-xl font-semibold tracking-tight">Providers</h1>
+            <p className="text-sm text-muted-foreground">
               Manage your AI provider connections
             </p>
           </div>
-          <Button onClick={() => setFormOpen(true)} className="gap-2">
+          <Button onClick={() => setFormOpen(true)} className="gap-2 rounded-xl h-10">
             <Plus className="h-4 w-4" />
-            Add Provider
+            <span className="hidden sm:inline">Add Provider</span>
           </Button>
         </div>
 
         {/* Provider cards */}
         {providers.length === 0 ? (
-          <div className="text-center py-16 border border-dashed border-[hsl(var(--border))] rounded-lg">
-            <Zap className="h-10 w-10 mx-auto mb-3 text-[hsl(var(--muted-foreground))]" />
-            <p className="text-[hsl(var(--muted-foreground))]">No providers yet</p>
-            <Button onClick={() => setFormOpen(true)} variant="outline" className="mt-3 gap-2">
+          <div className="text-center py-16 border border-dashed border-border rounded-2xl">
+            <div className="w-16 h-16 mx-auto mb-4 rounded-2xl bg-primary/10 flex items-center justify-center">
+              <Zap className="h-7 w-7 text-primary/50" />
+            </div>
+            <p className="text-muted-foreground text-sm">No providers yet</p>
+            <Button onClick={() => setFormOpen(true)} variant="outline" className="mt-4 gap-2 rounded-xl">
               <Plus className="h-4 w-4" />
               Add your first provider
             </Button>
           </div>
         ) : (
-          <div className="grid gap-4">
+          <div className="space-y-3">
             {providers.map((provider) => {
               const test = testResults[provider.id];
               return (
                 <div
                   key={provider.id}
-                  className="border border-[hsl(var(--border))] rounded-lg p-4 bg-[hsl(var(--card))]"
+                  className="rounded-2xl border border-border bg-card p-4 md:p-5 hover:border-primary/20 transition-colors"
                 >
-                  <div className="flex items-start justify-between">
-                    <div className="flex-1">
-                      <div className="flex items-center gap-2 mb-1">
-                        <h3 className="font-semibold">{provider.name}</h3>
-                        <Badge variant={provider.isActive ? "success" : "secondary"}>
-                          {provider.isActive ? "Active" : "Inactive"}
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex flex-wrap items-center gap-2 mb-1.5">
+                        <h3 className="font-semibold text-sm">{provider.name}</h3>
+                        <Badge
+                          variant={provider.isActive ? "default" : "secondary"}
+                          className="text-[10px] h-5"
+                        >
+                          {provider.isActive ? (
+                            <span className="flex items-center gap-1">
+                              <Activity className="h-2.5 w-2.5" />
+                              Active
+                            </span>
+                          ) : (
+                            "Inactive"
+                          )}
                         </Badge>
                         {provider.supportsStreaming && (
-                          <Badge variant="outline" className="text-xs">Streaming</Badge>
+                          <Badge variant="outline" className="text-[10px] h-5">Streaming</Badge>
                         )}
                       </div>
-                      <p className="text-sm text-[hsl(var(--muted-foreground))] mb-1">
+                      <p className="text-sm text-muted-foreground truncate mb-0.5">
                         {provider.baseUrl}
                       </p>
-                      <p className="text-xs text-[hsl(var(--muted-foreground))]">
-                        Key: {provider.apiKeyMasked}
+                      <p className="text-xs text-muted-foreground/60 font-mono">
+                        {provider.apiKeyMasked}
                       </p>
                     </div>
                   </div>
 
                   {/* Test result */}
                   {test?.result && (
-                    <div className={`mt-3 flex items-center gap-2 text-sm ${test.result.success ? "text-emerald-400" : "text-red-400"}`}>
-                      {test.result.success ? <CheckCircle className="h-4 w-4" /> : <XCircle className="h-4 w-4" />}
-                      {test.result.message}
+                    <div className={`mt-3 flex items-center gap-2 text-sm px-3 py-2 rounded-xl ${
+                      test.result.success
+                        ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20"
+                        : "bg-red-500/10 text-red-400 border border-red-500/20"
+                    }`}>
+                      {test.result.success ? <CheckCircle className="h-4 w-4 flex-shrink-0" /> : <XCircle className="h-4 w-4 flex-shrink-0" />}
+                      <span className="text-xs">{test.result.message}</span>
                     </div>
                   )}
 
                   {/* Actions */}
-                  <div className="flex items-center gap-2 mt-3 pt-3 border-t border-[hsl(var(--border))]">
+                  <div className="flex flex-wrap items-center gap-2 mt-3 pt-3 border-t border-border/60">
                     <Button
                       variant="outline"
                       size="sm"
                       onClick={() => handleTest(provider.id)}
                       disabled={test?.loading}
-                      className="gap-1.5"
+                      className="gap-1.5 rounded-lg h-8 text-xs"
                     >
                       {test?.loading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <TestTube className="h-3.5 w-3.5" />}
                       Test
@@ -191,16 +207,16 @@ export default function ProvidersPage() {
                       variant="outline"
                       size="sm"
                       onClick={() => handleFetchModels(provider)}
-                      className="gap-1.5"
+                      className="gap-1.5 rounded-lg h-8 text-xs"
                     >
                       <Download className="h-3.5 w-3.5" />
-                      Fetch Models
+                      Fetch
                     </Button>
                     <Button
                       variant="outline"
                       size="sm"
                       onClick={() => setEditingProvider(provider)}
-                      className="gap-1.5"
+                      className="gap-1.5 rounded-lg h-8 text-xs"
                     >
                       <Pencil className="h-3.5 w-3.5" />
                       Edit
@@ -209,7 +225,7 @@ export default function ProvidersPage() {
                       variant="outline"
                       size="sm"
                       onClick={() => handleDelete(provider.id)}
-                      className="gap-1.5 text-[hsl(var(--destructive))] hover:text-[hsl(var(--destructive))]"
+                      className="gap-1.5 rounded-lg h-8 text-xs text-destructive hover:text-destructive hover:bg-destructive/10"
                     >
                       <Trash2 className="h-3.5 w-3.5" />
                       Delete
