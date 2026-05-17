@@ -82,3 +82,17 @@ model Message {
 
   conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
 }
+
+model UserSettings {
+  id                  String   @id @default("default")
+  defaultProviderId   String?
+  defaultModelId      String?
+  defaultSystemPrompt String?
+  defaultTemperature  Float    @default(0.7)
+  defaultTopP         Float    @default(1.0)
+  defaultMaxTokens    Int      @default(4096)
+  defaultStreaming    Boolean  @default(true)
+  theme               String   @default("dark")
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+}
