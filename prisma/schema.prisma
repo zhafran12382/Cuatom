@@ -1,0 +1,96 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Provider {
+  id                String   @id @default(uuid())
+  name              String
+  apiKeyEncrypted   String
+  baseUrl           String
+  chatEndpoint      String?
+  endpointMode      String   @default("BASE_URL") // BASE_URL or FULL_ENDPOINT
+  modelsEndpoint    String?
+  defaultModelId    String?
+  supportsStreaming  Boolean  @default(true)
+  supportsVision    Boolean  @default(false)
+  supportsTools     Boolean  @default(false)
+  customHeaders     String?  // JSON string of key-value pairs
+  isActive          Boolean  @default(true)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  models        Model[]
+  conversations Conversation[]
+}
+
+model Model {
+  id              String   @id @default(uuid())
+  providerId      String
+  displayName     String
+  modelId         String
+  contextWindow   Int?
+  maxOutputTokens Int?
+  inputPrice      Float?
+  outputPrice     Float?
+  isFavorite      Boolean  @default(false)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  provider      Provider       @relation(fields: [providerId], references: [id], onDelete: Cascade)
+  conversations Conversation[]
+}
+
+model Conversation {
+  id           String   @id @default(uuid())
+  title        String   @default("New Chat")
+  providerId   String?
+  modelId      String?
+  systemPrompt String?
+  temperature  Float    @default(0.7)
+  topP         Float    @default(1.0)
+  maxTokens    Int      @default(4096)
+  presencePenalty  Float @default(0)
+  frequencyPenalty Float @default(0)
+  streaming    Boolean  @default(true)
+  isPinned     Boolean  @default(false)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  provider Provider?     @relation(fields: [providerId], references: [id], onDelete: SetNull)
+  model    Model?        @relation(fields: [modelId], references: [id], onDelete: SetNull)
+  messages Message[]
+}
+
+model Message {
+  id               String   @id @default(uuid())
+  conversationId   String
+  role             String   // system, user, assistant, tool
+  content          String
+  providerName     String?
+  modelId          String?
+  promptTokens     Int?
+  completionTokens Int?
+  totalTokens      Int?
+  cost             Float?
+  error            String?
+  createdAt        DateTime @default(now())
+
+  conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+}
+
+model UserSettings {
+  id                    String  @id @default("default")
+  defaultProviderId     String?
+  defaultModelId        String?
+  defaultSystemPrompt   String?
+  defaultTemperature    Float   @default(0.7)
+  defaultTopP           Float   @default(1.0)
+  defaultMaxTokens      Int     @default(4096)
+  defaultStreaming      Boolean @default(true)
+  theme                 String  @default("dark")
+}

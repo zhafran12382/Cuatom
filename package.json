@@ -1,0 +1,46 @@
+{
+  "name": "ai-chat",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint",
+    "db:generate": "prisma generate",
+    "db:push": "prisma db push",
+    "db:migrate": "prisma migrate dev",
+    "postinstall": "prisma generate"
+  },
+  "dependencies": {
+    "@hookform/resolvers": "^3.9.0",
+    "@prisma/client": "^5.22.0",
+    "class-variance-authority": "^0.7.0",
+    "clsx": "^2.1.0",
+    "lucide-react": "^0.460.0",
+    "next": "^14.0.0",
+    "react": "^18.0.0",
+    "react-dom": "^18.0.0",
+    "react-hook-form": "^7.53.0",
+    "react-markdown": "^9.0.0",
+    "rehype-highlight": "^7.0.0",
+    "rehype-sanitize": "^6.0.0",
+    "remark-gfm": "^4.0.0",
+    "sonner": "^1.7.0",
+    "tailwind-merge": "^2.6.0",
+    "uuid": "^11.0.0",
+    "zod": "^3.23.0",
+    "zustand": "^4.5.7"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "@types/react": "^18.0.0",
+    "@types/react-dom": "^18.0.0",
+    "@types/uuid": "^10.0.0",
+    "autoprefixer": "^10.5.0",
+    "postcss": "^8.5.14",
+    "prisma": "^5.22.0",
+    "tailwindcss": "^3.4.19",
+    "typescript": "^5.0.0"
+  }
+}
