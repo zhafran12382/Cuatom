@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import { ensureDatabase } from "@/lib/ensure-db";
 import { conversationSchema } from "@/lib/validators";
 
 export async function GET(
@@ -7,6 +8,7 @@ export async function GET(
   { params }: { params: { id: string } }
 ) {
   try {
+    await ensureDatabase();
     const conversation = await db.conversation.findUnique({
       where: { id: params.id },
       include: {
@@ -28,6 +30,7 @@ export async function PATCH(
   { params }: { params: { id: string } }
 ) {
   try {
+    await ensureDatabase();
     const body = await req.json();
     const parsed = conversationSchema.safeParse(body);
 
@@ -53,6 +56,7 @@ export async function DELETE(
   { params }: { params: { id: string } }
 ) {
   try {
+    await ensureDatabase();
     await db.conversation.delete({ where: { id: params.id } });
     return NextResponse.json({ message: "Conversation deleted" });
   } catch (error) {

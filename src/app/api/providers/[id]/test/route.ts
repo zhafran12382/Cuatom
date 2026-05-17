@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import { ensureDatabase } from "@/lib/ensure-db";
 import { testProviderConnection } from "@/lib/openai-compatible";
 
 export async function POST(
@@ -7,6 +8,7 @@ export async function POST(
   { params }: { params: { id: string } }
 ) {
   try {
+    await ensureDatabase();
     const provider = await db.provider.findUnique({ where: { id: params.id } });
     if (!provider) {
       return NextResponse.json({ message: "Provider not found" }, { status: 404 });

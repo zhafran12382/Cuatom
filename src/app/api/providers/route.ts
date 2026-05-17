@@ -1,10 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import { ensureDatabase } from "@/lib/ensure-db";
 import { encrypt, maskApiKey, decrypt } from "@/lib/crypto";
 import { providerSchema } from "@/lib/validators";
 
 export async function GET() {
   try {
+    await ensureDatabase();
     const providers = await db.provider.findMany({
       orderBy: { createdAt: "desc" },
     });
@@ -25,6 +27,7 @@ export async function GET() {
 
 export async function POST(req: NextRequest) {
   try {
+    await ensureDatabase();
     const body = await req.json();
     const parsed = providerSchema.safeParse(body);
 

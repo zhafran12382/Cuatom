@@ -1,9 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import { ensureDatabase } from "@/lib/ensure-db";
 import { conversationSchema } from "@/lib/validators";
 
 export async function GET() {
   try {
+    await ensureDatabase();
     const conversations = await db.conversation.findMany({
       orderBy: [{ isPinned: "desc" }, { updatedAt: "desc" }],
       include: {
@@ -19,6 +21,7 @@ export async function GET() {
 
 export async function POST(req: NextRequest) {
   try {
+    await ensureDatabase();
     const body = await req.json().catch(() => ({}));
     const parsed = conversationSchema.safeParse(body);
 

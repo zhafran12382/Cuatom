@@ -1,9 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import { ensureDatabase } from "@/lib/ensure-db";
 import { modelSchema } from "@/lib/validators";
 
 export async function GET() {
   try {
+    await ensureDatabase();
     const models = await db.model.findMany({
       include: { provider: { select: { id: true, name: true } } },
       orderBy: [{ isFavorite: "desc" }, { displayName: "asc" }],
@@ -16,6 +18,7 @@ export async function GET() {
 
 export async function POST(req: NextRequest) {
   try {
+    await ensureDatabase();
     const body = await req.json();
     const parsed = modelSchema.safeParse(body);
 

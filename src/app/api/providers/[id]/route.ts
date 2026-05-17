@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import { ensureDatabase } from "@/lib/ensure-db";
 import { encrypt, decrypt, maskApiKey } from "@/lib/crypto";
 import { providerUpdateSchema } from "@/lib/validators";
 
@@ -8,6 +9,7 @@ export async function GET(
   { params }: { params: { id: string } }
 ) {
   try {
+    await ensureDatabase();
     const provider = await db.provider.findUnique({ where: { id: params.id } });
     if (!provider) {
       return NextResponse.json({ message: "Provider not found" }, { status: 404 });
@@ -27,6 +29,7 @@ export async function PATCH(
   { params }: { params: { id: string } }
 ) {
   try {
+    await ensureDatabase();
     const body = await req.json();
     const parsed = providerUpdateSchema.safeParse(body);
 
@@ -67,6 +70,7 @@ export async function DELETE(
   { params }: { params: { id: string } }
 ) {
   try {
+    await ensureDatabase();
     await db.provider.delete({ where: { id: params.id } });
     return NextResponse.json({ message: "Provider deleted" });
   } catch (error) {

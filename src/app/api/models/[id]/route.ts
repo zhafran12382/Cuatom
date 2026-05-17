@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import { ensureDatabase } from "@/lib/ensure-db";
 import { modelSchema } from "@/lib/validators";
 
 export async function PATCH(
@@ -7,6 +8,7 @@ export async function PATCH(
   { params }: { params: { id: string } }
 ) {
   try {
+    await ensureDatabase();
     const body = await req.json();
     const parsed = modelSchema.partial().safeParse(body);
 
@@ -29,6 +31,7 @@ export async function DELETE(
   { params }: { params: { id: string } }
 ) {
   try {
+    await ensureDatabase();
     await db.model.delete({ where: { id: params.id } });
     return NextResponse.json({ message: "Model deleted" });
   } catch (error) {

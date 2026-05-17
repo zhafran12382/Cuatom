@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import { ensureDatabase } from "@/lib/ensure-db";
 
 export async function GET(
   req: NextRequest,
@@ -8,6 +9,7 @@ export async function GET(
   const format = req.nextUrl.searchParams.get("format") || "json";
 
   try {
+    await ensureDatabase();
     const conversation = await db.conversation.findUnique({
       where: { id: params.id },
       include: { messages: { orderBy: { createdAt: "asc" } } },

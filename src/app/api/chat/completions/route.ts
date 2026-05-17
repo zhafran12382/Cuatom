@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import { ensureDatabase } from "@/lib/ensure-db";
 import { chatCompletionSchema } from "@/lib/validators";
 import { buildEndpointUrl, buildHeaders } from "@/lib/openai-compatible";
 import { normalizeProviderError } from "@/lib/errors";
@@ -8,6 +9,7 @@ export const maxDuration = 120;
 
 export async function POST(req: NextRequest) {
   try {
+    await ensureDatabase();
     const body = await req.json();
     const parsed = chatCompletionSchema.safeParse(body);
 

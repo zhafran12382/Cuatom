@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import { ensureDatabase } from "@/lib/ensure-db";
 import { z } from "zod";
 
 const messageSchema = z.object({
@@ -12,6 +13,7 @@ export async function GET(
   { params }: { params: { id: string } }
 ) {
   try {
+    await ensureDatabase();
     const messages = await db.message.findMany({
       where: { conversationId: params.id },
       orderBy: { createdAt: "asc" },
@@ -27,6 +29,7 @@ export async function POST(
   { params }: { params: { id: string } }
 ) {
   try {
+    await ensureDatabase();
     const body = await req.json();
     const parsed = messageSchema.safeParse(body);
 
