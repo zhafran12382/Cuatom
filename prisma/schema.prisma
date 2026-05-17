@@ -3,7 +3,7 @@ generator client {
 }
 
 datasource db {
-  provider = "sqlite"
+  provider = "postgresql"
   url      = env("DATABASE_URL")
 }
 
@@ -13,13 +13,13 @@ model Provider {
   apiKeyEncrypted   String
   baseUrl           String
   chatEndpoint      String?
-  endpointMode      String   @default("BASE_URL") // BASE_URL or FULL_ENDPOINT
+  endpointMode      String   @default("BASE_URL")
   modelsEndpoint    String?
   defaultModelId    String?
+  customHeaders     String?
   supportsStreaming  Boolean  @default(true)
   supportsVision    Boolean  @default(false)
   supportsTools     Boolean  @default(false)
-  customHeaders     String?  // JSON string of key-value pairs
   isActive          Boolean  @default(true)
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
@@ -46,30 +46,30 @@ model Model {
 }
 
 model Conversation {
-  id           String   @id @default(uuid())
-  title        String   @default("New Chat")
-  providerId   String?
-  modelId      String?
-  systemPrompt String?
-  temperature  Float    @default(0.7)
-  topP         Float    @default(1.0)
-  maxTokens    Int      @default(4096)
-  presencePenalty  Float @default(0)
-  frequencyPenalty Float @default(0)
-  streaming    Boolean  @default(true)
-  isPinned     Boolean  @default(false)
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  id               String   @id @default(uuid())
+  title            String   @default("New Chat")
+  providerId       String?
+  modelId          String?
+  systemPrompt     String?
+  temperature      Float    @default(0.7)
+  topP             Float    @default(1.0)
+  maxTokens        Int      @default(4096)
+  presencePenalty  Float    @default(0)
+  frequencyPenalty Float    @default(0)
+  streaming        Boolean  @default(true)
+  isPinned         Boolean  @default(false)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
 
-  provider Provider?     @relation(fields: [providerId], references: [id], onDelete: SetNull)
-  model    Model?        @relation(fields: [modelId], references: [id], onDelete: SetNull)
+  provider Provider? @relation(fields: [providerId], references: [id], onDelete: SetNull)
+  model    Model?    @relation(fields: [modelId], references: [id], onDelete: SetNull)
   messages Message[]
 }
 
 model Message {
   id               String   @id @default(uuid())
   conversationId   String
-  role             String   // system, user, assistant, tool
+  role             String
   content          String
   providerName     String?
   modelId          String?
@@ -81,16 +81,4 @@ model Message {
   createdAt        DateTime @default(now())
 
   conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
-}
-
-model UserSettings {
-  id                    String  @id @default("default")
-  defaultProviderId     String?
-  defaultModelId        String?
-  defaultSystemPrompt   String?
-  defaultTemperature    Float   @default(0.7)
-  defaultTopP           Float   @default(1.0)
-  defaultMaxTokens      Int     @default(4096)
-  defaultStreaming      Boolean @default(true)
-  theme                 String  @default("dark")
 }
