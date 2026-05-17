@@ -22,6 +22,34 @@ export function ChatHeader({ conversation }: ChatHeaderProps) {
     (m) => !conversation?.providerId || m.providerId === conversation.providerId
   );
 
+  // Fallback: if no models but provider has defaultModelId, show it as an option
+  const fallbackModels =
+    activeModels.length === 0 && conversation?.providerId
+      ? (() => {
+          const provider = providers.find((p) => p.id === conversation.providerId);
+          if (provider?.defaultModelId) {
+            return [
+              {
+                id: `fallback-${provider.id}`,
+                providerId: provider.id,
+                displayName: provider.defaultModelId,
+                modelId: provider.defaultModelId,
+                contextWindow: null,
+                maxOutputTokens: null,
+                inputPrice: null,
+                outputPrice: null,
+                isFavorite: false,
+                createdAt: new Date().toISOString(),
+                updatedAt: new Date().toISOString(),
+              },
+            ];
+          }
+          return [];
+        })()
+      : [];
+
+  const modelOptions = activeModels.length > 0 ? activeModels : fallbackModels;
+
   const handleExportJson = () => {
     if (!conversation) return;
     const messages = useChatStore.getState().messages;
@@ -98,9 +126,12 @@ export function ChatHeader({ conversation }: ChatHeaderProps) {
           className="w-36 md:w-48 text-xs"
         >
           <option value="">Model</option>
-          {activeModels.map((m) => (
+          {modelOptions.map((m) => (
             <option key={m.id} value={m.id}>{m.displayName}</option>
           ))}
+          {modelOptions.length === 0 && (
+            <option value="" disabled>No models — add in Settings</option>
+          )}
         </Select>
 
         <div className="flex-1" />

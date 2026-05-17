@@ -55,6 +55,26 @@ export async function PATCH(
       data: updateData,
     });
 
+    // Auto-create a model entry if defaultModelId is updated and no model exists
+    if (provider.defaultModelId) {
+      try {
+        const existingModel = await db.model.findFirst({
+          where: { providerId: provider.id, modelId: provider.defaultModelId },
+        });
+        if (!existingModel) {
+          await db.model.create({
+            data: {
+              providerId: provider.id,
+              displayName: provider.defaultModelId,
+              modelId: provider.defaultModelId,
+            },
+          });
+        }
+      } catch {
+        // Ignore errors
+      }
+    }
+
     return NextResponse.json({
       ...provider,
       apiKeyEncrypted: undefined,

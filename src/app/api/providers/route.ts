@@ -48,6 +48,21 @@ export async function POST(req: NextRequest) {
       },
     });
 
+    // Auto-create a model entry if defaultModelId is provided
+    if (provider.defaultModelId) {
+      try {
+        await db.model.create({
+          data: {
+            providerId: provider.id,
+            displayName: provider.defaultModelId,
+            modelId: provider.defaultModelId,
+          },
+        });
+      } catch {
+        // Ignore if model already exists or creation fails
+      }
+    }
+
     return NextResponse.json({
       ...provider,
       apiKeyEncrypted: undefined,
