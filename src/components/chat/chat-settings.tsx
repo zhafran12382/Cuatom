@@ -1,9 +1,12 @@
 "use client";
 
 import { useConversations } from "@/hooks/use-conversations";
+import { useChatStore } from "@/stores/chat-store";
 import { Dialog, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { Select } from "@/components/ui/select";
+import { Globe, Zap } from "lucide-react";
 import type { Conversation } from "@/types";
 
 interface ChatSettingsProps {
@@ -22,6 +25,7 @@ const TOKEN_PRESETS = [4096, 8192, 16384, 32768, 128000];
 
 export function ChatSettings({ open, onOpenChange, conversation }: ChatSettingsProps) {
   const { updateConversation } = useConversations();
+  const { providers, models } = useChatStore();
 
   if (!conversation) return null;
 
@@ -52,6 +56,37 @@ export function ChatSettings({ open, onOpenChange, conversation }: ChatSettingsP
     });
   };
 
+  const activeModels = models.filter(
+    (m) => !conversation?.providerId || m.providerId === conversation.providerId
+  );
+
+  const fallbackModels =
+    activeModels.length === 0 && conversation?.providerId
+      ? (() => {
+          const provider = providers.find((p) => p.id === conversation.providerId);
+          if (provider?.defaultModelId) {
+            return [
+              {
+                id: `fallback-${provider.id}`,
+                providerId: provider.id,
+                displayName: provider.defaultModelId,
+                modelId: provider.defaultModelId,
+                contextWindow: null,
+                maxOutputTokens: null,
+                inputPrice: null,
+                outputPrice: null,
+                isFavorite: false,
+                createdAt: new Date().toISOString(),
+                updatedAt: new Date().toISOString(),
+              },
+            ];
+          }
+          return [];
+        })()
+      : [];
+
+  const modelOptions = activeModels.length > 0 ? activeModels : fallbackModels;
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogHeader>
@@ -59,15 +94,61 @@ export function ChatSettings({ open, onOpenChange, conversation }: ChatSettingsP
       </DialogHeader>
 
       <div className="space-y-5 max-h-[70vh] overflow-y-auto pr-1">
+        {/* Provider & Model — always visible */}
+        <div className="space-y-3 pb-4 border-b border-border/60">
+          <h3 className="text-sm font-semibold text-muted-foreground flex items-center gap-2">
+            <Globe className="h-4 w-4" />
+            Provider & Model
+          </h3>
+
+          <div>
+            <label className="block text-sm font-medium mb-1.5">Provider</label>
+            <Select
+              value={conversation.providerId || ""}
+              onChange={(e) => {
+                update({ providerId: e.target.value || null, modelId: null });
+              }}
+              className="rounded-xl"
+            >
+              <option value="">Select provider...</option>
+              {providers.filter((p) => p.isActive).map((p) => (
+                <option key={p.id} value={p.id}>{p.name}</option>
+              ))}
+            </Select>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium mb-1.5 flex items-center gap-1.5">
+              <Zap className="h-3.5 w-3.5" />
+              Model
+            </label>
+            <Select
+              value={conversation.modelId || ""}
+              onChange={(e) => {
+                update({ modelId: e.target.value || null });
+              }}
+              className="rounded-xl"
+            >
+              <option value="">Select model...</option>
+              {modelOptions.map((m) => (
+                <option key={m.id} value={m.id}>{m.displayName}</option>
+              ))}
+              {modelOptions.length === 0 && (
+                <option value="" disabled>No models available</option>
+              )}
+            </Select>
+          </div>
+        </div>
+
         {/* Presets */}
         <div>
           <label className="block text-sm font-medium mb-2">Presets</label>
-          <div className="flex gap-2">
+          <div className="grid grid-cols-3 gap-2">
             {(Object.keys(PRESETS) as Array<keyof typeof PRESETS>).map((key) => (
               <button
                 key={key}
                 onClick={() => applyPreset(key)}
-                className="flex-1 px-3 py-2 rounded-xl border border-border/60 text-sm capitalize hover:bg-primary/5 hover:border-primary/30 transition-colors"
+                className="px-3 py-2 rounded-xl border border-border/60 text-sm capitalize hover:bg-primary/5 hover:border-primary/30 transition-colors min-h-[44px]"
               >
                 {key}
               </button>
@@ -162,7 +243,7 @@ export function ChatSettings({ open, onOpenChange, conversation }: ChatSettingsP
               <button
                 key={val}
                 onClick={() => update({ maxTokens: val })}
-                className={`px-2 py-1 rounded-lg text-[11px] font-mono transition-colors ${
+                className={`px-2 py-1 rounded-lg text-[11px] font-mono transition-colors min-h-[32px] ${
                   conversation.maxTokens === val
                     ? "bg-primary/15 text-primary border border-primary/30"
                     : "bg-muted text-muted-foreground border border-transparent hover:border-border"
@@ -174,8 +255,8 @@ export function ChatSettings({ open, onOpenChange, conversation }: ChatSettingsP
           </div>
         </div>
 
-        {/* Penalties */}
-        <div className="grid grid-cols-2 gap-3">
+        {/* Penalties — stacked on mobile */}
+        <div className="space-y-3 sm:grid sm:grid-cols-2 sm:gap-3">
           <div>
             <div className="flex items-center justify-between mb-1.5">
               <label className="text-sm font-medium">Presence</label>
@@ -234,7 +315,7 @@ export function ChatSettings({ open, onOpenChange, conversation }: ChatSettingsP
         <div className="pt-2 border-t border-border/60">
           <button
             onClick={resetDefaults}
-            className="text-sm text-destructive hover:text-destructive/80 transition-colors"
+            className="text-sm text-destructive hover:text-destructive/80 transition-colors min-h-[44px]"
           >
             Reset to defaults
           </button>

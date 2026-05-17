@@ -28,7 +28,7 @@ export default function ModelsPage() {
   const [editingModel, setEditingModel] = useState<Model | null>(null);
 
   return (
-    <div className="min-h-screen bg-background p-4 md:p-8">
+    <div className="min-h-dvh bg-background p-4 md:p-8 overflow-y-auto">
       <div className="max-w-3xl mx-auto">
         {/* Header */}
         <div className="flex items-center gap-3 mb-8">

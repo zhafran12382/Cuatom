@@ -6,7 +6,7 @@ import { ArrowLeft, Zap, Box } from "lucide-react";
 
 export default function SettingsPage() {
   return (
-    <div className="min-h-screen bg-background p-4 md:p-8">
+    <div className="min-h-dvh bg-background p-4 md:p-8 overflow-y-auto">
       <div className="max-w-2xl mx-auto">
         <div className="flex items-center gap-3 mb-8">
           <Link href="/">

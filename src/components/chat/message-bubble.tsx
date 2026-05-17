@@ -80,7 +80,7 @@ export function MessageBubble({ message, isStreaming }: MessageBubbleProps) {
 
         {/* Actions row */}
         <div
-          className={`flex items-center gap-1.5 mt-1.5 opacity-0 group-hover:opacity-100 transition-opacity duration-200 ${
+          className={`flex items-center gap-1.5 mt-1.5 transition-opacity duration-200 ${
             isUser || isError ? "justify-end" : ""
           }`}
         >
@@ -88,7 +88,7 @@ export function MessageBubble({ message, isStreaming }: MessageBubbleProps) {
             <>
               <button
                 onClick={handleCopy}
-                className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-xs text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
+                className="inline-flex items-center gap-1 px-2 py-1.5 rounded-lg text-xs text-muted-foreground hover:text-foreground hover:bg-accent transition-colors min-h-[32px]"
                 title="Copy message"
                 aria-label="Copy message"
               >
@@ -100,7 +100,7 @@ export function MessageBubble({ message, isStreaming }: MessageBubbleProps) {
                 ) : (
                   <>
                     <Copy className="h-3 w-3" />
-                    <span>Copy</span>
+                    <span className="hidden sm:inline">Copy</span>
                   </>
                 )}
               </button>

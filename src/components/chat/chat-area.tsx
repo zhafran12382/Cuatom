@@ -27,8 +27,18 @@ export function ChatArea() {
     stopGeneration,
   } = useChatStore();
 
-  const { conversations, updateConversation } = useConversations();
+  const { conversations, updateConversation, selectConversation } = useConversations();
   const activeConversation = conversations.find((c) => c.id === activeConversationId);
+
+  // Auto-send pending prompt when a conversation is selected
+  useEffect(() => {
+    const prompt = useChatStore.getState().pendingPrompt;
+    if (activeConversationId && prompt) {
+      useChatStore.setState({ pendingPrompt: null });
+      // Small delay for conversation data to be ready
+      setTimeout(() => handleSend(prompt), 150);
+    }
+  }, [activeConversationId]);
 
   const handleSend = async (content: string) => {
     if (!activeConversationId || !content.trim()) return;

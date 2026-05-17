@@ -12,6 +12,7 @@ interface ChatState {
   streamingContent: string;
   sidebarOpen: boolean;
   abortController: AbortController | null;
+  pendingPrompt: string | null;
 
   setConversations: (conversations: Conversation[]) => void;
   setActiveConversation: (id: string | null) => void;
@@ -40,6 +41,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
   streamingContent: "",
   sidebarOpen: false,
   abortController: null,
+  pendingPrompt: null,
 
   setConversations: (conversations) => set({ conversations }),
   setActiveConversation: (id) => set({ activeConversationId: id }),

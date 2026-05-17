@@ -36,7 +36,7 @@ export function Sidebar() {
   const [search, setSearch] = useState("");
   const [menuOpen, setMenuOpen] = useState<string | null>(null);
   const menuRef = useRef<HTMLDivElement>(null);
-  const { activeConversationId } = useChatStore();
+  const { activeConversationId, setSidebarOpen } = useChatStore();
   const {
     conversations,
     createConversation,
@@ -44,6 +44,24 @@ export function Sidebar() {
     updateConversation,
     selectConversation,
   } = useConversations();
+
+  // Close sidebar on mobile when a conversation is selected
+  const handleSelect = (id: string) => {
+    selectConversation(id);
+    if (window.innerWidth < 768) {
+      setSidebarOpen(false);
+    }
+  };
+
+  const handleNewChat = async () => {
+    const conv = await createConversation();
+    if (conv) {
+      selectConversation(conv.id);
+      if (window.innerWidth < 768) {
+        setSidebarOpen(false);
+      }
+    }
+  };
 
   // Close menu on outside click
   useEffect(() => {
@@ -95,7 +113,7 @@ export function Sidebar() {
         </div>
         <Button
           className="w-full justify-start gap-2 rounded-xl h-10 text-sm font-medium"
-          onClick={() => createConversation()}
+          onClick={handleNewChat}
         >
           <Plus className="h-4 w-4" />
           New Chat
@@ -125,7 +143,7 @@ export function Sidebar() {
       </div>
 
       {/* Conversation list */}
-      <div className="flex-1 overflow-y-auto px-2 pb-2" ref={menuRef}>
+      <div className="flex-1 overflow-y-auto px-2 pb-2 safe-area-inset-bottom" ref={menuRef}>
         {pinned.length > 0 && (
           <div className="mb-2">
             <p className="text-[11px] font-semibold text-muted-foreground/70 uppercase tracking-wider px-2.5 mb-1.5">
@@ -136,7 +154,7 @@ export function Sidebar() {
                 key={conv.id}
                 conversation={conv}
                 isActive={conv.id === activeConversationId}
-                onSelect={() => selectConversation(conv.id)}
+                onSelect={() => handleSelect(conv.id)}
                 onDelete={() => deleteConversation(conv.id)}
                 onTogglePin={() => updateConversation(conv.id, { isPinned: !conv.isPinned })}
                 menuOpen={menuOpen === conv.id}
@@ -163,7 +181,7 @@ export function Sidebar() {
                       key={conv.id}
                       conversation={conv}
                       isActive={conv.id === activeConversationId}
-                      onSelect={() => selectConversation(conv.id)}
+                      onSelect={() => handleSelect(conv.id)}
                       onDelete={() => deleteConversation(conv.id)}
                       onTogglePin={() =>
                         updateConversation(conv.id, { isPinned: !conv.isPinned })

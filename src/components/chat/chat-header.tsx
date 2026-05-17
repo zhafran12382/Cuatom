@@ -69,6 +69,14 @@ export function ChatHeader({ conversation }: ChatHeaderProps) {
 
   const modelOptions = activeModels.length > 0 ? activeModels : fallbackModels;
 
+  // Currently active provider and model names for mobile display
+  const activeProvider = conversation?.providerId
+    ? providers.find((p) => p.id === conversation.providerId)
+    : null;
+  const activeModel = conversation?.modelId
+    ? modelOptions.find((m) => m.id === conversation.modelId)
+    : null;
+
   const handleExportJson = () => {
     if (!conversation) return;
     const messages = useChatStore.getState().messages;
@@ -123,6 +131,9 @@ export function ChatHeader({ conversation }: ChatHeaderProps) {
     !conversation.streaming
   );
 
+  // Missing provider/model indicator
+  const needsSetup = conversation && (!conversation.providerId || !conversation.modelId);
+
   return (
     <>
       <div className="flex items-center gap-2 px-3 py-2.5 border-b border-border/60 bg-card/80 backdrop-blur-sm">
@@ -131,6 +142,7 @@ export function ChatHeader({ conversation }: ChatHeaderProps) {
           size="icon"
           onClick={() => setSidebarOpen(!sidebarOpen)}
           className="h-9 w-9 rounded-lg"
+          aria-label="Toggle sidebar"
         >
           <Menu className="h-4 w-4" />
         </Button>
@@ -162,9 +174,28 @@ export function ChatHeader({ conversation }: ChatHeaderProps) {
               {conversation?.title || "New Chat"}
             </button>
           )}
+          {/* Mobile: show provider/model as subtitle */}
+          <div className="flex items-center gap-1.5 sm:hidden mt-0.5">
+            {needsSetup ? (
+              <button
+                onClick={() => setSettingsOpen(true)}
+                className="text-[11px] text-amber-400 hover:text-amber-300 transition-colors"
+              >
+                Tap to set provider & model
+              </button>
+            ) : activeProvider || activeModel ? (
+              <button
+                onClick={() => setSettingsOpen(true)}
+                className="text-[11px] text-muted-foreground/70 hover:text-muted-foreground transition-colors truncate"
+              >
+                {activeProvider?.name}
+                {activeModel ? ` · ${activeModel.displayName}` : ""}
+              </button>
+            ) : null}
+          </div>
         </div>
 
-        {/* Provider selector */}
+        {/* Provider selector — desktop only */}
         <div className="hidden sm:flex items-center gap-1">
           <Globe className="h-3.5 w-3.5 text-muted-foreground/50" />
           <Select
@@ -183,7 +214,7 @@ export function ChatHeader({ conversation }: ChatHeaderProps) {
           </Select>
         </div>
 
-        {/* Model selector */}
+        {/* Model selector — desktop only */}
         <div className="hidden sm:flex items-center gap-1">
           <Zap className="h-3.5 w-3.5 text-muted-foreground/50" />
           <Select
@@ -205,6 +236,17 @@ export function ChatHeader({ conversation }: ChatHeaderProps) {
           </Select>
         </div>
 
+        {/* Missing setup indicator — mobile */}
+        {needsSetup && (
+          <button
+            onClick={() => setSettingsOpen(true)}
+            className="sm:hidden h-7 px-2 rounded-lg bg-amber-500/10 text-amber-400 text-[11px] font-medium hover:bg-amber-500/20 transition-colors"
+            aria-label="Set provider and model"
+          >
+            Setup
+          </button>
+        )}
+
         {/* Export dropdown */}
         <div className="relative" ref={exportRef}>
           <Button
@@ -221,13 +263,13 @@ export function ChatHeader({ conversation }: ChatHeaderProps) {
             <div className="absolute right-0 top-full mt-1 z-50 w-44 rounded-xl border border-border bg-popover p-1.5 shadow-lg animate-scale-in">
               <button
                 onClick={handleExportJson}
-                className="w-full px-3 py-2 text-sm text-left rounded-lg hover:bg-accent transition-colors"
+                className="w-full px-3 py-2 text-sm text-left rounded-lg hover:bg-accent transition-colors min-h-[44px] flex items-center"
               >
                 Export as JSON
               </button>
               <button
                 onClick={handleExportMarkdown}
-                className="w-full px-3 py-2 text-sm text-left rounded-lg hover:bg-accent transition-colors"
+                className="w-full px-3 py-2 text-sm text-left rounded-lg hover:bg-accent transition-colors min-h-[44px] flex items-center"
               >
                 Export as Markdown
               </button>

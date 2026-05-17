@@ -15,12 +15,12 @@ export function ChatLayout() {
   useConversations();
 
   return (
-    <div className="flex h-screen">
+    <div className="flex h-dvh">
       {/* Sidebar */}
       <div
         className={`${
-          sidebarOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0 md:w-0"
-        } transition-transform duration-300 ease-[cubic-bezier(0.32,0.72,0,1)] overflow-hidden border-r border-border/60 flex-shrink-0 fixed md:relative inset-y-0 left-0 z-50 md:z-0 w-72 md:w-80`}
+          sidebarOpen ? "translate-x-0" : "-translate-x-full"
+        } transition-transform duration-300 ease-[cubic-bezier(0.32,0.72,0,1)] overflow-hidden border-r border-border/60 flex-shrink-0 fixed md:relative inset-y-0 left-0 z-50 md:z-0 w-[280px] md:w-72 md:translate-x-0`}
       >
         <Sidebar />
       </div>

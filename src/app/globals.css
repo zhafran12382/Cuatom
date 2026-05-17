@@ -91,9 +91,10 @@ pre code {
   font-family: var(--font-jetbrains-mono), ui-monospace, monospace;
 }
 
-/* Mobile keyboard fix */
+/* Mobile viewport: use dvh everywhere for proper mobile keyboard handling */
 @supports (height: 100dvh) {
-  .h-screen {
+  .h-screen,
+  .h-dvh {
     height: 100dvh;
   }
 }
