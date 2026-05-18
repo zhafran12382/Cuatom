@@ -20,7 +20,18 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const { conversationId, providerId, modelId, messages, temperature, topP, maxTokens, stream } = parsed.data;
+    const {
+      conversationId,
+      providerId,
+      modelId,
+      messages,
+      saveUserMessage,
+      userMessage,
+      temperature,
+      topP,
+      maxTokens,
+      stream,
+    } = parsed.data;
 
     // Fetch provider
     const provider = await db.provider.findUnique({ where: { id: providerId } });
@@ -40,6 +51,23 @@ export async function POST(req: NextRequest) {
 
     const maxOutputTokens = parseInt(process.env.MAX_OUTPUT_TOKENS || "8192", 10);
     const finalMaxTokens = Math.min(maxTokens || 4096, maxOutputTokens);
+
+    const userContentToSave = userMessage?.trim();
+    const saveUserMessagePromise =
+      saveUserMessage && userContentToSave
+        ? db.message
+            .create({
+              data: {
+                conversationId,
+                role: "user",
+                content: userContentToSave,
+              },
+            })
+            .catch((error) => {
+              console.error("Failed to save user message:", error);
+              return null;
+            })
+        : Promise.resolve(null);
 
     // Build request
     const url = buildEndpointUrl(provider);
@@ -92,6 +120,7 @@ export async function POST(req: NextRequest) {
       const normalized = normalizeProviderError(parsed, response.status);
 
       // Save error message to DB
+      await saveUserMessagePromise;
       await db.message.create({
         data: {
           conversationId,
@@ -150,6 +179,10 @@ export async function POST(req: NextRequest) {
           }
         },
         async flush() {
+          // Persist the optimistic user message before the assistant message so
+          // history order is correct when the client reconciles after streaming.
+          await saveUserMessagePromise;
+
           // Save complete message to DB
           await db.message.create({
             data: {
@@ -198,6 +231,7 @@ export async function POST(req: NextRequest) {
     const usage = data.usage || {};
 
     // Save to DB
+    await saveUserMessagePromise;
     await db.message.create({
       data: {
         conversationId,

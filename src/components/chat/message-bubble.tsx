@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { memo, useState } from "react";
 import { Copy, Check, AlertCircle, Bot, User } from "lucide-react";
 import { MarkdownRenderer } from "./markdown-renderer";
 import type { Message } from "@/types";
@@ -10,7 +10,7 @@ interface MessageBubbleProps {
   isStreaming?: boolean;
 }
 
-export function MessageBubble({ message, isStreaming }: MessageBubbleProps) {
+function MessageBubbleImpl({ message, isStreaming }: MessageBubbleProps) {
   const [copied, setCopied] = useState(false);
   const isUser = message.role === "user";
   const isError = !!message.error;
@@ -28,10 +28,7 @@ export function MessageBubble({ message, isStreaming }: MessageBubbleProps) {
     : "";
 
   return (
-    <div
-      className={`flex gap-3 md:gap-4 ${isUser ? "flex-row-reverse" : ""} message-enter`}
-      style={{ animationDelay: `${Math.random() * 50}ms` }}
-    >
+    <div className={`flex gap-3 md:gap-4 ${isUser ? "flex-row-reverse" : ""} message-enter`}>
       {/* Avatar */}
       <div
         className={`w-7 h-7 md:w-8 md:h-8 rounded-xl flex items-center justify-center flex-shrink-0 mt-0.5 ${
@@ -67,15 +64,17 @@ export function MessageBubble({ message, isStreaming }: MessageBubbleProps) {
               <AlertCircle className="h-4 w-4 text-red-400 mt-0.5 flex-shrink-0" />
               <p className="text-sm">{message.error}</p>
             </div>
-          ) : isUser ? (
+          ) : isUser || isStreaming ? (
+            // During streaming, render plain text only. Parsing markdown on
+            // every token is one of the biggest mobile jank sources; the final
+            // persisted assistant bubble gets full markdown rendering after the
+            // stream finishes.
             <p className="whitespace-pre-wrap">{message.content}</p>
           ) : (
             <MarkdownRenderer content={message.content} />
           )}
 
-          {isStreaming && (
-            <span className="streaming-cursor" />
-          )}
+          {isStreaming && <span className="streaming-cursor" />}
         </div>
 
         {/* Actions row */}
@@ -129,3 +128,26 @@ export function MessageBubble({ message, isStreaming }: MessageBubbleProps) {
     </div>
   );
 }
+
+/**
+ * Memoize bubbles so streamingContent updates only re-render the streaming
+ * bubble itself, not every previously-finalized message in the list.
+ *
+ * Custom equality: a bubble is equal to its previous render iff the message
+ * payload that affects rendering hasn't changed. This is far cheaper than
+ * shallow object compare because Message is a stable record once persisted.
+ */
+export const MessageBubble = memo(MessageBubbleImpl, (prev, next) => {
+  if (prev.isStreaming !== next.isStreaming) return false;
+  const a = prev.message;
+  const b = next.message;
+  return (
+    a.id === b.id &&
+    a.content === b.content &&
+    a.role === b.role &&
+    a.error === b.error &&
+    a.totalTokens === b.totalTokens &&
+    a.cost === b.cost &&
+    a.createdAt === b.createdAt
+  );
+});

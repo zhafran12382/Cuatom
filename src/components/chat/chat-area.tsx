@@ -1,63 +1,106 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useCallback, useEffect } from "react";
 import { useChatStore } from "@/stores/chat-store";
-import { useConversations } from "@/hooks/use-conversations";
 import { ChatHeader } from "./chat-header";
 import { MessageList } from "./message-list";
 import { ChatInput } from "./chat-input";
 import { EmptyState } from "./empty-state";
-import type { Message } from "@/types";
+import type { Conversation, Message } from "@/types";
+
+function tempId(prefix: string) {
+  return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+}
+
+function makeMessage(
+  overrides: Partial<Message> & Pick<Message, "conversationId" | "role" | "content">
+): Message {
+  return {
+    id: tempId(overrides.role),
+    providerName: null,
+    modelId: null,
+    promptTokens: null,
+    completionTokens: null,
+    totalTokens: null,
+    cost: null,
+    error: null,
+    createdAt: new Date().toISOString(),
+    ...overrides,
+  };
+}
+
+async function reconcileMessages(conversationId: string) {
+  const res = await fetch(`/api/conversations/${conversationId}/messages`, {
+    cache: "no-store",
+  });
+  if (!res.ok) return;
+  const msgs = await res.json();
+  useChatStore.getState().setMessages(msgs);
+}
+
+function buildPromptMessages(conv: Conversation, existingMessages: Message[], content: string) {
+  const allMessages: Array<{ role: Message["role"]; content: string }> = [];
+
+  if (conv.systemPrompt) {
+    allMessages.push({ role: "system", content: conv.systemPrompt });
+  }
+
+  for (const msg of existingMessages) {
+    if (msg.role !== "system" && msg.content) {
+      allMessages.push({ role: msg.role, content: msg.content });
+    }
+  }
+
+  allMessages.push({ role: "user", content });
+  return allMessages;
+}
+
+function ChatComposer({ onSend }: { onSend: (content: string) => void }) {
+  // Composer only re-renders when the button state changes, not every streamed
+  // chunk. This is why taps/typing stay responsive on low-end mobile CPUs.
+  const isLoading = useChatStore((s) => s.isLoading);
+  const isStreaming = useChatStore((s) => s.isStreaming);
+  const stopGeneration = useChatStore((s) => s.stopGeneration);
+
+  return (
+    <ChatInput
+      onSend={onSend}
+      isLoading={isLoading || isStreaming}
+      onStop={stopGeneration}
+    />
+  );
+}
 
 export function ChatArea() {
-  const {
-    activeConversationId,
-    messages,
-    providers,
-    models,
-    isLoading,
-    isStreaming,
-    streamingContent,
-    setIsLoading,
-    setIsStreaming,
-    setStreamingContent,
-    appendStreamingContent,
-    addMessage,
-    setAbortController,
-    stopGeneration,
-  } = useChatStore();
+  const activeConversationId = useChatStore((s) => s.activeConversationId);
+  const activeConversation = useChatStore((s) =>
+    s.activeConversationId
+      ? s.conversations.find((c) => c.id === s.activeConversationId)
+      : undefined
+  );
 
-  const { conversations, updateConversation, selectConversation } = useConversations();
-  const activeConversation = conversations.find((c) => c.id === activeConversationId);
+  const handleSend = useCallback(async (rawContent: string) => {
+    const content = rawContent.trim();
+    if (!content) return;
 
-  // Auto-send pending prompt when a conversation is selected
-  useEffect(() => {
-    const prompt = useChatStore.getState().pendingPrompt;
-    if (activeConversationId && prompt) {
-      useChatStore.setState({ pendingPrompt: null });
-      // Small delay for conversation data to be ready
-      setTimeout(() => handleSend(prompt), 150);
-    }
-  }, [activeConversationId]);
+    const store = useChatStore.getState();
+    const conversationId = store.activeConversationId;
+    if (!conversationId) return;
 
-  const handleSend = async (content: string) => {
-    if (!activeConversationId || !content.trim()) return;
-
-    const conv = activeConversation;
+    const conv = store.conversations.find((c) => c.id === conversationId);
     if (!conv) return;
 
-    // Determine provider and model
     const providerId = conv.providerId;
-    const modelId = conv.modelId;
+    const modelRowId = conv.modelId;
 
-    if (!providerId || !modelId) {
+    if (!providerId || !modelRowId) {
       const { toast } = await import("sonner");
-      toast.error("Please select a provider and model in chat settings");
+      toast.error("Please select a provider and model first");
       return;
     }
 
-    const provider = providers.find((p) => p.id === providerId);
-    const model = models.find((m) => m.id === modelId);
+    const provider = store.providers.find((p) => p.id === providerId) || conv.provider;
+    const model = store.models.find((m) => m.id === modelRowId) || conv.model;
 
     if (!provider) {
       const { toast } = await import("sonner");
@@ -65,129 +108,181 @@ export function ChatArea() {
       return;
     }
 
-    // Save user message
-    const userMsgRes = await fetch(`/api/conversations/${activeConversationId}/messages`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ role: "user", content }),
+    const existingMessages = store.messages;
+    const optimisticUser = makeMessage({
+      conversationId,
+      role: "user",
+      content,
     });
 
-    if (!userMsgRes.ok) return;
-    const userMsg = await userMsgRes.json();
-    addMessage(userMsg);
-
-    // Build messages array for API
-    const allMessages: Array<{ role: string; content: string }> = [];
-    if (conv.systemPrompt) {
-      allMessages.push({ role: "system", content: conv.systemPrompt });
-    }
-    // Include previous messages
-    messages.forEach((m) => {
-      if (m.role !== "system") {
-        allMessages.push({ role: m.role, content: m.content });
-      }
-    });
-    allMessages.push({ role: "user", content });
-
-    // Send to completion proxy
-    setIsLoading(true);
-    setStreamingContent("");
+    // Instant visual feedback: no more waiting for /messages POST before the
+    // user's bubble appears. The completion endpoint persists this same user
+    // message server-side while the model request is already in flight.
+    store.addMessage(optimisticUser);
+    store.setIsLoading(true);
+    store.setIsStreaming(false);
+    store.setStreamingContent("");
 
     const shouldStream = conv.streaming && provider.supportsStreaming;
     const controller = new AbortController();
-    setAbortController(controller);
+    store.setAbortController(controller);
 
     try {
       const res = await fetch("/api/chat/completions", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          conversationId: activeConversationId,
+          conversationId,
           providerId,
-          modelId: model?.modelId || modelId,
-          messages: allMessages,
+          modelId: model?.modelId || modelRowId,
+          messages: buildPromptMessages(conv, existingMessages, content),
+          saveUserMessage: true,
+          userMessage: content,
           temperature: conv.temperature,
           topP: conv.topP,
           maxTokens: conv.maxTokens,
           stream: shouldStream,
         }),
         signal: controller.signal,
+        cache: "no-store",
       });
 
       if (!res.ok) {
         const err = await res.json().catch(() => ({ message: "Request failed" }));
+        const message = err.message || "Failed to get response";
+        store.setIsLoading(false);
+        store.setIsStreaming(false);
+        store.addMessage(
+          makeMessage({
+            conversationId,
+            role: "assistant",
+            content: "",
+            providerName: provider.name,
+            modelId: model?.modelId || modelRowId,
+            error: message,
+          })
+        );
         const { toast } = await import("sonner");
-        toast.error(err.message || "Failed to get response");
-        setIsLoading(false);
+        toast.error(message);
+        reconcileMessages(conversationId).catch(() => {});
         return;
       }
 
       if (shouldStream && res.body) {
-        setIsStreaming(true);
-        setIsLoading(false);
+        store.setIsStreaming(true);
+        store.setIsLoading(false);
 
         const reader = res.body.getReader();
         const decoder = new TextDecoder();
-        let fullContent = "";
+        let sseBuffer = "";
 
         while (true) {
           const { done, value } = await reader.read();
           if (done) break;
 
-          const text = decoder.decode(value, { stream: true });
-          const lines = text.split("\n");
+          sseBuffer += decoder.decode(value, { stream: true });
+          const lines = sseBuffer.split("\n");
+          sseBuffer = lines.pop() || "";
 
           for (const line of lines) {
-            if (!line.trim() || line.trim() === "data: [DONE]") continue;
-            if (line.startsWith("data: ")) {
-              try {
-                const data = JSON.parse(line.slice(6));
-                const delta = data.choices?.[0]?.delta?.content;
-                if (delta) {
-                  fullContent += delta;
-                  appendStreamingContent(delta);
-                }
-              } catch {
-                // Skip invalid chunks
-              }
+            const trimmed = line.trim();
+            if (!trimmed || trimmed === "data: [DONE]") continue;
+            if (!trimmed.startsWith("data: ")) continue;
+
+            try {
+              const data = JSON.parse(trimmed.slice(6));
+              const delta = data.choices?.[0]?.delta?.content;
+              if (delta) store.appendStreamingContent(delta);
+            } catch {
+              // Ignore provider keep-alive / malformed partial chunks.
             }
           }
         }
 
-        setIsStreaming(false);
-        setStreamingContent("");
+        store.flushStreamingBuffer();
+        const finalContent = useChatStore.getState().streamingContent;
+        store.setIsStreaming(false);
+        store.setIsLoading(false);
+        store.setStreamingContent("");
+        store.setAbortController(null);
 
-        // Reload messages to get the saved assistant message
-        const msgsRes = await fetch(`/api/conversations/${activeConversationId}/messages`);
-        if (msgsRes.ok) {
-          const msgs = await msgsRes.json();
-          useChatStore.getState().setMessages(msgs);
+        // Keep the completed answer on screen immediately instead of showing a
+        // blank gap while we refetch the canonical DB rows.
+        if (finalContent) {
+          store.addMessage(
+            makeMessage({
+              conversationId,
+              role: "assistant",
+              content: finalContent,
+              providerName: provider.name,
+              modelId: model?.modelId || modelRowId,
+            })
+          );
         }
-      } else {
-        // Non-streaming
-        const data = await res.json();
-        setIsLoading(false);
 
-        // Reload messages
-        const msgsRes = await fetch(`/api/conversations/${activeConversationId}/messages`);
-        if (msgsRes.ok) {
-          const msgs = await msgsRes.json();
-          useChatStore.getState().setMessages(msgs);
-        }
-      }
-    } catch (error) {
-      if ((error as Error).name === "AbortError") {
-        setIsStreaming(false);
-        setIsLoading(false);
-        setStreamingContent("");
+        reconcileMessages(conversationId).catch(() => {});
         return;
       }
+
+      const data = await res.json();
+      store.setIsLoading(false);
+      store.setIsStreaming(false);
+      store.setAbortController(null);
+
+      if (data.content) {
+        store.addMessage(
+          makeMessage({
+            conversationId,
+            role: "assistant",
+            content: data.content,
+            providerName: provider.name,
+            modelId: model?.modelId || modelRowId,
+            promptTokens: data.usage?.prompt_tokens || null,
+            completionTokens: data.usage?.completion_tokens || null,
+            totalTokens: data.usage?.total_tokens || null,
+          })
+        );
+      }
+
+      reconcileMessages(conversationId).catch(() => {});
+    } catch (error) {
+      if ((error as Error).name === "AbortError") {
+        useChatStore.getState().flushStreamingBuffer();
+        store.setIsStreaming(false);
+        store.setIsLoading(false);
+        store.setStreamingContent("");
+        store.setAbortController(null);
+        return;
+      }
+
+      const message = "Failed to send message";
+      store.setIsLoading(false);
+      store.setIsStreaming(false);
+      store.setAbortController(null);
+      store.addMessage(
+        makeMessage({
+          conversationId,
+          role: "assistant",
+          content: "",
+          providerName: provider.name,
+          modelId: model?.modelId || modelRowId,
+          error: message,
+        })
+      );
       const { toast } = await import("sonner");
-      toast.error("Failed to send message");
-      setIsLoading(false);
-      setIsStreaming(false);
+      toast.error(message);
     }
-  };
+  }, []);
+
+  // Auto-send pending prompt when a conversation is selected. The send handler
+  // reads fresh store state, so the effect doesn't subscribe to messages.
+  useEffect(() => {
+    const prompt = useChatStore.getState().pendingPrompt;
+    if (activeConversationId && prompt) {
+      useChatStore.setState({ pendingPrompt: null });
+      window.setTimeout(() => handleSend(prompt), 0);
+    }
+  }, [activeConversationId, handleSend]);
 
   if (!activeConversationId) {
     return <EmptyState />;
@@ -196,16 +291,8 @@ export function ChatArea() {
   return (
     <div className="flex flex-col h-full">
       <ChatHeader conversation={activeConversation} />
-      <MessageList
-        messages={messages}
-        isStreaming={isStreaming}
-        streamingContent={streamingContent}
-      />
-      <ChatInput
-        onSend={handleSend}
-        isLoading={isLoading || isStreaming}
-        onStop={stopGeneration}
-      />
+      <MessageList />
+      <ChatComposer onSend={handleSend} />
     </div>
   );
 }

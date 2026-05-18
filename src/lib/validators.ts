@@ -52,6 +52,11 @@ export const chatCompletionSchema = z.object({
     role: z.enum(["system", "user", "assistant", "tool"]),
     content: z.string(),
   })).min(1),
+  // Lets the chat completion endpoint persist the just-sent user message in
+  // the same request that starts the model call. This removes one client-side
+  // round-trip from the send path, which is very noticeable on mobile.
+  saveUserMessage: z.boolean().optional(),
+  userMessage: z.string().optional(),
   temperature: z.number().min(0).max(2).optional(),
   topP: z.number().min(0).max(1).optional(),
   maxTokens: z.number().int().min(1).max(200000).optional(),

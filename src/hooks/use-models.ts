@@ -1,23 +1,45 @@
 import { useCallback, useEffect } from "react";
 import { useChatStore } from "@/stores/chat-store";
 
-export function useModels() {
-  const { models, setModels } = useChatStore();
+let modelsLoaded = false;
+let modelsFetchPromise: Promise<void> | null = null;
 
-  const fetchModels = useCallback(async () => {
-    try {
-      const res = await fetch("/api/models");
-      if (res.ok) {
-        const data = await res.json();
-        setModels(data);
+export function useModels() {
+  const models = useChatStore((s) => s.models);
+  const setModels = useChatStore((s) => s.setModels);
+
+  const fetchModels = useCallback(
+    async (force = false) => {
+      if (!force && modelsLoaded) return;
+      if (!force && modelsFetchPromise) return modelsFetchPromise;
+
+      const run = (async () => {
+        try {
+          const res = await fetch("/api/models", { cache: "no-store" });
+          if (res.ok) {
+            const data = await res.json();
+            setModels(data);
+            modelsLoaded = true;
+          }
+        } catch (error) {
+          console.error("Failed to fetch models:", error);
+        }
+      })();
+
+      if (!force) {
+        modelsFetchPromise = run.finally(() => {
+          modelsFetchPromise = null;
+        });
+        return modelsFetchPromise;
       }
-    } catch (error) {
-      console.error("Failed to fetch models:", error);
-    }
-  }, [setModels]);
+
+      return run;
+    },
+    [setModels]
+  );
 
   useEffect(() => {
-    fetchModels();
+    fetchModels().catch(() => {});
   }, [fetchModels]);
 
   const createModel = async (data: Record<string, unknown>) => {
@@ -25,12 +47,13 @@ export function useModels() {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(data),
+      cache: "no-store",
     });
     if (!res.ok) {
       const err = await res.json();
       throw new Error(err.message || "Failed to create model");
     }
-    await fetchModels();
+    await fetchModels(true);
     return res.json();
   };
 
@@ -39,19 +62,23 @@ export function useModels() {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(data),
+      cache: "no-store",
     });
     if (!res.ok) {
       const err = await res.json();
       throw new Error(err.message || "Failed to update model");
     }
-    await fetchModels();
+    await fetchModels(true);
     return res.json();
   };
 
   const deleteModel = async (id: string) => {
-    const res = await fetch(`/api/models/${id}`, { method: "DELETE" });
+    const res = await fetch(`/api/models/${id}`, {
+      method: "DELETE",
+      cache: "no-store",
+    });
     if (!res.ok) throw new Error("Failed to delete model");
-    await fetchModels();
+    await fetchModels(true);
   };
 
   return { models, fetchModels, createModel, updateModel, deleteModel };

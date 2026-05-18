@@ -1,24 +1,45 @@
 import { useCallback, useEffect } from "react";
 import { useChatStore } from "@/stores/chat-store";
-import type { Provider } from "@/types";
+
+let providersLoaded = false;
+let providersFetchPromise: Promise<void> | null = null;
 
 export function useProviders() {
-  const { providers, setProviders } = useChatStore();
+  const providers = useChatStore((s) => s.providers);
+  const setProviders = useChatStore((s) => s.setProviders);
 
-  const fetchProviders = useCallback(async () => {
-    try {
-      const res = await fetch("/api/providers");
-      if (res.ok) {
-        const data = await res.json();
-        setProviders(data);
+  const fetchProviders = useCallback(
+    async (force = false) => {
+      if (!force && providersLoaded) return;
+      if (!force && providersFetchPromise) return providersFetchPromise;
+
+      const run = (async () => {
+        try {
+          const res = await fetch("/api/providers", { cache: "no-store" });
+          if (res.ok) {
+            const data = await res.json();
+            setProviders(data);
+            providersLoaded = true;
+          }
+        } catch (error) {
+          console.error("Failed to fetch providers:", error);
+        }
+      })();
+
+      if (!force) {
+        providersFetchPromise = run.finally(() => {
+          providersFetchPromise = null;
+        });
+        return providersFetchPromise;
       }
-    } catch (error) {
-      console.error("Failed to fetch providers:", error);
-    }
-  }, [setProviders]);
+
+      return run;
+    },
+    [setProviders]
+  );
 
   useEffect(() => {
-    fetchProviders();
+    fetchProviders().catch(() => {});
   }, [fetchProviders]);
 
   const createProvider = async (data: Record<string, unknown>) => {
@@ -26,12 +47,13 @@ export function useProviders() {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(data),
+      cache: "no-store",
     });
     if (!res.ok) {
       const err = await res.json();
       throw new Error(err.message || "Failed to create provider");
     }
-    await fetchProviders();
+    await fetchProviders(true);
     return res.json();
   };
 
@@ -40,28 +62,38 @@ export function useProviders() {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(data),
+      cache: "no-store",
     });
     if (!res.ok) {
       const err = await res.json();
       throw new Error(err.message || "Failed to update provider");
     }
-    await fetchProviders();
+    await fetchProviders(true);
     return res.json();
   };
 
   const deleteProvider = async (id: string) => {
-    const res = await fetch(`/api/providers/${id}`, { method: "DELETE" });
+    const res = await fetch(`/api/providers/${id}`, {
+      method: "DELETE",
+      cache: "no-store",
+    });
     if (!res.ok) throw new Error("Failed to delete provider");
-    await fetchProviders();
+    await fetchProviders(true);
   };
 
   const testProvider = async (id: string) => {
-    const res = await fetch(`/api/providers/${id}/test`, { method: "POST" });
+    const res = await fetch(`/api/providers/${id}/test`, {
+      method: "POST",
+      cache: "no-store",
+    });
     return res.json();
   };
 
   const fetchModelsFromProvider = async (id: string) => {
-    const res = await fetch(`/api/providers/${id}/fetch-models`, { method: "POST" });
+    const res = await fetch(`/api/providers/${id}/fetch-models`, {
+      method: "POST",
+      cache: "no-store",
+    });
     return res.json();
   };
 

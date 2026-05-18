@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { memo, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import rehypeSanitize from "rehype-sanitize";
@@ -10,7 +10,7 @@ interface MarkdownRendererProps {
   content: string;
 }
 
-export function MarkdownRenderer({ content }: MarkdownRendererProps) {
+function MarkdownRendererImpl({ content }: MarkdownRendererProps) {
   return (
     <div className="prose prose-invert prose-sm max-w-none break-words">
       <ReactMarkdown
@@ -155,3 +155,13 @@ function CodeBlock({ children, language }: { children: string; language: string 
     </div>
   );
 }
+
+/**
+ * Memoize so that streaming chunks only re-parse markdown when the content
+ * actually changes. Without this, every keypress in another part of the UI
+ * (sidebar search, model picker open) re-parses the full markdown tree.
+ */
+export const MarkdownRenderer = memo(
+  MarkdownRendererImpl,
+  (prev, next) => prev.content === next.content
+);

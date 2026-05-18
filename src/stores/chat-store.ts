@@ -25,10 +25,17 @@ interface ChatState {
   setIsStreaming: (streaming: boolean) => void;
   setStreamingContent: (content: string) => void;
   appendStreamingContent: (chunk: string) => void;
+  flushStreamingBuffer: () => void;
   setSidebarOpen: (open: boolean) => void;
   setAbortController: (controller: AbortController | null) => void;
   stopGeneration: () => void;
 }
+
+// Streaming chunks arrive far faster than React can paint (50–100/sec on a fast
+// model). We batch them into a single setState per animation frame so the
+// chat doesn't re-render hundreds of times per second on mobile.
+let pendingStreamBuffer = "";
+let rafScheduled: number | null = null;
 
 export const useChatStore = create<ChatState>((set, get) => ({
   conversations: [],
@@ -55,9 +62,35 @@ export const useChatStore = create<ChatState>((set, get) => ({
   setModels: (models) => set({ models }),
   setIsLoading: (isLoading) => set({ isLoading }),
   setIsStreaming: (isStreaming) => set({ isStreaming }),
-  setStreamingContent: (streamingContent) => set({ streamingContent }),
-  appendStreamingContent: (chunk) =>
-    set((state) => ({ streamingContent: state.streamingContent + chunk })),
+  setStreamingContent: (streamingContent) => {
+    pendingStreamBuffer = "";
+    if (rafScheduled !== null) {
+      cancelAnimationFrame(rafScheduled);
+      rafScheduled = null;
+    }
+    set({ streamingContent });
+  },
+  appendStreamingContent: (chunk) => {
+    pendingStreamBuffer += chunk;
+    if (rafScheduled !== null) return;
+    rafScheduled = requestAnimationFrame(() => {
+      rafScheduled = null;
+      const buffered = pendingStreamBuffer;
+      pendingStreamBuffer = "";
+      set((state) => ({ streamingContent: state.streamingContent + buffered }));
+    });
+  },
+  flushStreamingBuffer: () => {
+    if (rafScheduled !== null) {
+      cancelAnimationFrame(rafScheduled);
+      rafScheduled = null;
+    }
+    if (pendingStreamBuffer) {
+      const buffered = pendingStreamBuffer;
+      pendingStreamBuffer = "";
+      set((state) => ({ streamingContent: state.streamingContent + buffered }));
+    }
+  },
   setSidebarOpen: (sidebarOpen) => set({ sidebarOpen }),
   setAbortController: (abortController) => set({ abortController }),
   stopGeneration: () => {

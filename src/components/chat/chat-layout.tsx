@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useRef } from "react";
 import { Sidebar } from "./sidebar";
 import { ChatArea } from "./chat-area";
 import { useChatStore } from "@/stores/chat-store";
@@ -8,15 +9,54 @@ import { useModels } from "@/hooks/use-models";
 import { useConversations } from "@/hooks/use-conversations";
 
 export function ChatLayout() {
-  const { sidebarOpen, setSidebarOpen } = useChatStore();
+  // Subscribe to ONLY the slices this component needs. Subscribing to the
+  // whole store re-renders everything during streaming.
+  const sidebarOpen = useChatStore((s) => s.sidebarOpen);
+  const setSidebarOpen = useChatStore((s) => s.setSidebarOpen);
+  const conversations = useChatStore((s) => s.conversations);
+  const activeConversationId = useChatStore((s) => s.activeConversationId);
+  const providers = useChatStore((s) => s.providers);
 
   useProviders();
   useModels();
-  useConversations();
+  const { createConversation, selectConversation } = useConversations();
+
+  const didAutoLand = useRef(false);
+
+  // Land users straight into a chat view on first load:
+  //  1. If they already have an active conversation → leave it alone
+  //  2. Else if conversations exist → open the most recently updated one
+  //  3. Else if providers configured → auto-create a fresh chat
+  //  4. Else (no providers yet) → still create a parked chat shell so the
+  //     UI looks like a chat instead of a setup page; the header will
+  //     surface a "Setup needed" hint and the quick-starts in EmptyState
+  //     guide them to add a provider.
+  useEffect(() => {
+    if (didAutoLand.current) return;
+    if (activeConversationId) {
+      didAutoLand.current = true;
+      return;
+    }
+
+    if (conversations.length > 0) {
+      const latest = [...conversations].sort(
+        (a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()
+      )[0];
+      didAutoLand.current = true;
+      selectConversation(latest.id);
+      return;
+    }
+
+    if (providers.length > 0) {
+      didAutoLand.current = true;
+      createConversation().catch(() => {
+        didAutoLand.current = false;
+      });
+    }
+  }, [activeConversationId, conversations, providers, createConversation, selectConversation]);
 
   return (
     <div className="flex h-dvh">
-      {/* Sidebar */}
       <div
         className={`${
           sidebarOpen ? "translate-x-0" : "-translate-x-full"
@@ -25,12 +65,10 @@ export function ChatLayout() {
         <Sidebar />
       </div>
 
-      {/* Main chat area */}
       <div className="flex-1 flex flex-col min-w-0 bg-background">
         <ChatArea />
       </div>
 
-      {/* Mobile sidebar overlay */}
       {sidebarOpen && (
         <div
           className="fixed inset-0 bg-black/40 backdrop-blur-sm z-40 md:hidden animate-fade-in"
