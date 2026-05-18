@@ -4,9 +4,9 @@ import { useState, useRef, useEffect } from "react";
 import { useChatStore } from "@/stores/chat-store";
 import { useConversations } from "@/hooks/use-conversations";
 import { Button } from "@/components/ui/button";
-import { Select } from "@/components/ui/select";
 import { ChatSettings } from "./chat-settings";
-import { Menu, Settings2, Download, ChevronDown, Globe, Zap } from "lucide-react";
+import { ModelSelector } from "./model-selector";
+import { Menu, Settings2, Download } from "lucide-react";
 import type { Conversation } from "@/types";
 
 interface ChatHeaderProps {
@@ -36,46 +36,6 @@ export function ChatHeader({ conversation }: ChatHeaderProps) {
   useEffect(() => {
     if (conversation?.title) setTitleValue(conversation.title);
   }, [conversation?.title]);
-
-  const activeModels = models.filter(
-    (m) => !conversation?.providerId || m.providerId === conversation.providerId
-  );
-
-  // Fallback: if no models but provider has defaultModelId, show it as an option
-  const fallbackModels =
-    activeModels.length === 0 && conversation?.providerId
-      ? (() => {
-          const provider = providers.find((p) => p.id === conversation.providerId);
-          if (provider?.defaultModelId) {
-            return [
-              {
-                id: `fallback-${provider.id}`,
-                providerId: provider.id,
-                displayName: provider.defaultModelId,
-                modelId: provider.defaultModelId,
-                contextWindow: null,
-                maxOutputTokens: null,
-                inputPrice: null,
-                outputPrice: null,
-                isFavorite: false,
-                createdAt: new Date().toISOString(),
-                updatedAt: new Date().toISOString(),
-              },
-            ];
-          }
-          return [];
-        })()
-      : [];
-
-  const modelOptions = activeModels.length > 0 ? activeModels : fallbackModels;
-
-  // Currently active provider and model names for mobile display
-  const activeProvider = conversation?.providerId
-    ? providers.find((p) => p.id === conversation.providerId)
-    : null;
-  const activeModel = conversation?.modelId
-    ? modelOptions.find((m) => m.id === conversation.modelId)
-    : null;
 
   const handleExportJson = () => {
     if (!conversation) return;
@@ -134,6 +94,14 @@ export function ChatHeader({ conversation }: ChatHeaderProps) {
   // Missing provider/model indicator
   const needsSetup = conversation && (!conversation.providerId || !conversation.modelId);
 
+  const handleModelChange = (next: { providerId: string | null; modelId: string | null }) => {
+    if (!conversation) return;
+    updateConversation(conversation.id, {
+      providerId: next.providerId,
+      modelId: next.modelId,
+    });
+  };
+
   return (
     <>
       <div className="flex items-center gap-2 px-3 py-2.5 border-b border-border/60 bg-card/80 backdrop-blur-sm">
@@ -141,7 +109,7 @@ export function ChatHeader({ conversation }: ChatHeaderProps) {
           variant="ghost"
           size="icon"
           onClick={() => setSidebarOpen(!sidebarOpen)}
-          className="h-9 w-9 rounded-lg"
+          className="h-9 w-9 rounded-lg flex-shrink-0"
           aria-label="Toggle sidebar"
         >
           <Menu className="h-4 w-4" />
@@ -168,87 +136,36 @@ export function ChatHeader({ conversation }: ChatHeaderProps) {
           ) : (
             <button
               onClick={() => setEditingTitle(true)}
-              className="text-sm font-medium truncate hover:text-primary transition-colors text-left"
+              className="text-sm font-medium truncate hover:text-primary transition-colors text-left w-full"
               title="Click to edit title"
             >
               {conversation?.title || "New Chat"}
             </button>
           )}
-          {/* Mobile: show provider/model as subtitle */}
-          <div className="flex items-center gap-1.5 sm:hidden mt-0.5">
-            {needsSetup ? (
-              <button
-                onClick={() => setSettingsOpen(true)}
-                className="text-[11px] text-amber-400 hover:text-amber-300 transition-colors"
-              >
-                Tap to set provider & model
-              </button>
-            ) : activeProvider || activeModel ? (
-              <button
-                onClick={() => setSettingsOpen(true)}
-                className="text-[11px] text-muted-foreground/70 hover:text-muted-foreground transition-colors truncate"
-              >
-                {activeProvider?.name}
-                {activeModel ? ` · ${activeModel.displayName}` : ""}
-              </button>
-            ) : null}
-          </div>
         </div>
 
-        {/* Provider selector — desktop only */}
-        <div className="hidden sm:flex items-center gap-1">
-          <Globe className="h-3.5 w-3.5 text-muted-foreground/50" />
-          <Select
-            value={conversation?.providerId || ""}
-            onChange={(e) => {
-              if (conversation) {
-                updateConversation(conversation.id, { providerId: e.target.value || null });
-              }
-            }}
-            className="w-28 md:w-36 text-xs bg-transparent border-0 focus:ring-0"
-          >
-            <option value="">Provider</option>
-            {providers.filter((p) => p.isActive).map((p) => (
-              <option key={p.id} value={p.id}>{p.name}</option>
-            ))}
-          </Select>
-        </div>
+        {/* Unified Provider + Model selector */}
+        <ModelSelector
+          providers={providers}
+          models={models}
+          value={{
+            providerId: conversation?.providerId || null,
+            modelId: conversation?.modelId || null,
+          }}
+          onChange={handleModelChange}
+          compact
+          className="max-w-[55vw] sm:max-w-[18rem]"
+        />
 
-        {/* Model selector — desktop only */}
-        <div className="hidden sm:flex items-center gap-1">
-          <Zap className="h-3.5 w-3.5 text-muted-foreground/50" />
-          <Select
-            value={conversation?.modelId || ""}
-            onChange={(e) => {
-              if (conversation) {
-                updateConversation(conversation.id, { modelId: e.target.value || null });
-              }
-            }}
-            className="w-32 md:w-40 text-xs bg-transparent border-0 focus:ring-0"
-          >
-            <option value="">Model</option>
-            {modelOptions.map((m) => (
-              <option key={m.id} value={m.id}>{m.displayName}</option>
-            ))}
-            {modelOptions.length === 0 && (
-              <option value="" disabled>No models — add in Settings</option>
-            )}
-          </Select>
-        </div>
-
-        {/* Missing setup indicator — mobile */}
+        {/* Setup hint when no provider/model */}
         {needsSetup && (
-          <button
-            onClick={() => setSettingsOpen(true)}
-            className="sm:hidden h-7 px-2 rounded-lg bg-amber-500/10 text-amber-400 text-[11px] font-medium hover:bg-amber-500/20 transition-colors"
-            aria-label="Set provider and model"
-          >
-            Setup
-          </button>
+          <span className="hidden md:inline-flex h-7 px-2 rounded-lg bg-amber-500/10 text-amber-400 text-[11px] font-medium items-center">
+            Setup needed
+          </span>
         )}
 
         {/* Export dropdown */}
-        <div className="relative" ref={exportRef}>
+        <div className="relative flex-shrink-0" ref={exportRef}>
           <Button
             variant="ghost"
             size="icon"
@@ -282,7 +199,7 @@ export function ChatHeader({ conversation }: ChatHeaderProps) {
           variant="ghost"
           size="icon"
           onClick={() => setSettingsOpen(true)}
-          className={`h-9 w-9 rounded-lg relative ${hasCustomSettings ? "text-primary" : ""}`}
+          className={`h-9 w-9 rounded-lg relative flex-shrink-0 ${hasCustomSettings ? "text-primary" : ""}`}
           title="Chat Settings"
           aria-label="Chat settings"
         >

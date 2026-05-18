@@ -48,18 +48,29 @@ export async function POST(req: NextRequest) {
       },
     });
 
-    // Auto-create a model entry if defaultModelId is provided
+    // Auto-create a model entry if defaultModelId is provided.
+    // Use upsert-style guard so we never produce duplicate rows for the
+    // same (providerId, modelId) pair if this endpoint is called twice or
+    // if fetch-models has already synced the same id.
     if (provider.defaultModelId) {
       try {
-        await db.model.create({
-          data: {
+        const existing = await db.model.findFirst({
+          where: {
             providerId: provider.id,
-            displayName: provider.defaultModelId,
             modelId: provider.defaultModelId,
           },
         });
+        if (!existing) {
+          await db.model.create({
+            data: {
+              providerId: provider.id,
+              displayName: provider.defaultModelId,
+              modelId: provider.defaultModelId,
+            },
+          });
+        }
       } catch {
-        // Ignore if model already exists or creation fails
+        // Ignore failures so provider creation still succeeds.
       }
     }
 
