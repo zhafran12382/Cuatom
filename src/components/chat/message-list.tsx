@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { memo, useEffect, useRef } from "react";
 import { MessageBubble } from "./message-bubble";
 import { TypingIndicator } from "./typing-indicator";
 import type { Message } from "@/types";
@@ -11,68 +11,69 @@ interface MessageListProps {
   streamingContent: string;
 }
 
-export function MessageList({ messages, isStreaming, streamingContent }: MessageListProps) {
+function MessageListImpl({ messages, isStreaming, streamingContent }: MessageListProps) {
   const bottomRef = useRef<HTMLDivElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
+  // Track whether the user is "stuck to bottom" — if they scrolled up to read
+  // older messages, we stop force-scrolling them as new content streams.
+  const stickToBottom = useRef(true);
 
   useEffect(() => {
-    // Use scrollTo for smoother control
     const el = scrollRef.current;
-    if (el) {
-      const isNearBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 100;
-      if (isNearBottom) {
-        bottomRef.current?.scrollIntoView({ behavior: "smooth" });
-      }
-    }
-  }, [messages, streamingContent]);
+    if (!el) return;
+    const onScroll = () => {
+      const threshold = 80;
+      stickToBottom.current =
+        el.scrollHeight - el.scrollTop - el.clientHeight < threshold;
+    };
+    el.addEventListener("scroll", onScroll, { passive: true });
+    return () => el.removeEventListener("scroll", onScroll);
+  }, []);
 
-  const showTyping = isLoading(messages, isStreaming);
+  useEffect(() => {
+    if (!stickToBottom.current) return;
+    // Use auto (instant) scroll during active streaming — smooth scroll
+    // queues up animations and feels worse on slow devices.
+    bottomRef.current?.scrollIntoView({
+      behavior: isStreaming ? "auto" : "smooth",
+    });
+  }, [messages, streamingContent, isStreaming]);
+
+  const showTyping = shouldShowTyping(messages, isStreaming);
 
   return (
-    <div ref={scrollRef} className="flex-1 overflow-y-auto px-3 md:px-6 py-4">
+    <div
+      ref={scrollRef}
+      className="flex-1 overflow-y-auto px-3 md:px-6 py-4 [contain:layout_paint] [content-visibility:auto]"
+    >
       <div className="max-w-3xl mx-auto space-y-5">
-        {messages.map((msg, index) => (
-          <div
-            key={msg.id}
-            className="animate-fade-in-up"
-            style={{
-              animationDelay: `${Math.min(index * 40, 300)}ms`,
-              animationFillMode: "both",
-            }}
-          >
-            <MessageBubble message={msg} />
-          </div>
+        {messages.map((msg) => (
+          <MessageBubble key={msg.id} message={msg} />
         ))}
 
         {/* Streaming message */}
         {isStreaming && streamingContent && (
-          <div className="animate-fade-in-up" style={{ animationFillMode: "both" }}>
-            <MessageBubble
-              message={{
-                id: "streaming",
-                conversationId: "",
-                role: "assistant",
-                content: streamingContent,
-                providerName: null,
-                modelId: null,
-                promptTokens: null,
-                completionTokens: null,
-                totalTokens: null,
-                cost: null,
-                error: null,
-                createdAt: new Date().toISOString(),
-              }}
-              isStreaming
-            />
-          </div>
+          <MessageBubble
+            message={{
+              id: "streaming",
+              conversationId: "",
+              role: "assistant",
+              content: streamingContent,
+              providerName: null,
+              modelId: null,
+              promptTokens: null,
+              completionTokens: null,
+              totalTokens: null,
+              cost: null,
+              error: null,
+              createdAt: new Date().toISOString(),
+            }}
+            isStreaming
+          />
         )}
 
         {/* Typing indicator */}
-        {showTyping && !isStreaming && (
-          <div className="animate-fade-in">
-            <TypingIndicator />
-          </div>
-        )}
+        {showTyping && !isStreaming && <TypingIndicator />}
 
         <div ref={bottomRef} />
       </div>
@@ -80,9 +81,10 @@ export function MessageList({ messages, isStreaming, streamingContent }: Message
   );
 }
 
-function isLoading(messages: Message[], isStreaming: boolean): boolean {
-  // Show typing if last message is user and not streaming yet
+function shouldShowTyping(messages: Message[], isStreaming: boolean): boolean {
   if (messages.length === 0) return false;
   const lastMsg = messages[messages.length - 1];
   return lastMsg.role === "user" && !isStreaming;
 }
+
+export const MessageList = memo(MessageListImpl);

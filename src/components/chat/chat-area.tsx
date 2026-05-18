@@ -1,33 +1,25 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useEffect } from "react";
 import { useChatStore } from "@/stores/chat-store";
 import { useConversations } from "@/hooks/use-conversations";
 import { ChatHeader } from "./chat-header";
 import { MessageList } from "./message-list";
 import { ChatInput } from "./chat-input";
 import { EmptyState } from "./empty-state";
-import type { Message } from "@/types";
 
 export function ChatArea() {
-  const {
-    activeConversationId,
-    messages,
-    providers,
-    models,
-    isLoading,
-    isStreaming,
-    streamingContent,
-    setIsLoading,
-    setIsStreaming,
-    setStreamingContent,
-    appendStreamingContent,
-    addMessage,
-    setAbortController,
-    stopGeneration,
-  } = useChatStore();
+  // Subscribe only to slices this component reads. Anything that flips
+  // during streaming (streamingContent, messages) goes to the leaf
+  // components that actually render it.
+  const activeConversationId = useChatStore((s) => s.activeConversationId);
+  const messages = useChatStore((s) => s.messages);
+  const isStreaming = useChatStore((s) => s.isStreaming);
+  const streamingContent = useChatStore((s) => s.streamingContent);
+  const isLoading = useChatStore((s) => s.isLoading);
+  const stopGeneration = useChatStore((s) => s.stopGeneration);
 
-  const { conversations, updateConversation, selectConversation } = useConversations();
+  const { conversations } = useConversations();
   const activeConversation = conversations.find((c) => c.id === activeConversationId);
 
   // Auto-send pending prompt when a conversation is selected
@@ -38,15 +30,17 @@ export function ChatArea() {
       // Small delay for conversation data to be ready
       setTimeout(() => handleSend(prompt), 150);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeConversationId]);
 
   const handleSend = async (content: string) => {
     if (!activeConversationId || !content.trim()) return;
 
-    const conv = activeConversation;
+    // Read current state without subscribing — avoids stale closures
+    const store = useChatStore.getState();
+    const conv = conversations.find((c) => c.id === activeConversationId);
     if (!conv) return;
 
-    // Determine provider and model
     const providerId = conv.providerId;
     const modelId = conv.modelId;
 
@@ -56,8 +50,8 @@ export function ChatArea() {
       return;
     }
 
-    const provider = providers.find((p) => p.id === providerId);
-    const model = models.find((m) => m.id === modelId);
+    const provider = store.providers.find((p) => p.id === providerId);
+    const model = store.models.find((m) => m.id === modelId);
 
     if (!provider) {
       const { toast } = await import("sonner");
@@ -66,36 +60,38 @@ export function ChatArea() {
     }
 
     // Save user message
-    const userMsgRes = await fetch(`/api/conversations/${activeConversationId}/messages`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ role: "user", content }),
-    });
+    const userMsgRes = await fetch(
+      `/api/conversations/${activeConversationId}/messages`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ role: "user", content }),
+      }
+    );
 
     if (!userMsgRes.ok) return;
     const userMsg = await userMsgRes.json();
-    addMessage(userMsg);
+    store.addMessage(userMsg);
 
     // Build messages array for API
     const allMessages: Array<{ role: string; content: string }> = [];
     if (conv.systemPrompt) {
       allMessages.push({ role: "system", content: conv.systemPrompt });
     }
-    // Include previous messages
-    messages.forEach((m) => {
+    // Include previous messages from the freshest snapshot
+    useChatStore.getState().messages.forEach((m) => {
       if (m.role !== "system") {
         allMessages.push({ role: m.role, content: m.content });
       }
     });
     allMessages.push({ role: "user", content });
 
-    // Send to completion proxy
-    setIsLoading(true);
-    setStreamingContent("");
+    store.setIsLoading(true);
+    store.setStreamingContent("");
 
     const shouldStream = conv.streaming && provider.supportsStreaming;
     const controller = new AbortController();
-    setAbortController(controller);
+    store.setAbortController(controller);
 
     try {
       const res = await fetch("/api/chat/completions", {
@@ -118,17 +114,16 @@ export function ChatArea() {
         const err = await res.json().catch(() => ({ message: "Request failed" }));
         const { toast } = await import("sonner");
         toast.error(err.message || "Failed to get response");
-        setIsLoading(false);
+        store.setIsLoading(false);
         return;
       }
 
       if (shouldStream && res.body) {
-        setIsStreaming(true);
-        setIsLoading(false);
+        store.setIsStreaming(true);
+        store.setIsLoading(false);
 
         const reader = res.body.getReader();
         const decoder = new TextDecoder();
-        let fullContent = "";
 
         while (true) {
           const { done, value } = await reader.read();
@@ -144,8 +139,7 @@ export function ChatArea() {
                 const data = JSON.parse(line.slice(6));
                 const delta = data.choices?.[0]?.delta?.content;
                 if (delta) {
-                  fullContent += delta;
-                  appendStreamingContent(delta);
+                  store.appendStreamingContent(delta);
                 }
               } catch {
                 // Skip invalid chunks
@@ -154,22 +148,27 @@ export function ChatArea() {
           }
         }
 
-        setIsStreaming(false);
-        setStreamingContent("");
+        // Make sure any chunk still queued in the rAF buffer is committed
+        // before we swap streamingContent for the final saved message.
+        useChatStore.getState().flushStreamingBuffer();
+        store.setIsStreaming(false);
+        store.setStreamingContent("");
 
         // Reload messages to get the saved assistant message
-        const msgsRes = await fetch(`/api/conversations/${activeConversationId}/messages`);
+        const msgsRes = await fetch(
+          `/api/conversations/${activeConversationId}/messages`
+        );
         if (msgsRes.ok) {
           const msgs = await msgsRes.json();
           useChatStore.getState().setMessages(msgs);
         }
       } else {
-        // Non-streaming
-        const data = await res.json();
-        setIsLoading(false);
+        await res.json();
+        store.setIsLoading(false);
 
-        // Reload messages
-        const msgsRes = await fetch(`/api/conversations/${activeConversationId}/messages`);
+        const msgsRes = await fetch(
+          `/api/conversations/${activeConversationId}/messages`
+        );
         if (msgsRes.ok) {
           const msgs = await msgsRes.json();
           useChatStore.getState().setMessages(msgs);
@@ -177,15 +176,16 @@ export function ChatArea() {
       }
     } catch (error) {
       if ((error as Error).name === "AbortError") {
-        setIsStreaming(false);
-        setIsLoading(false);
-        setStreamingContent("");
+        useChatStore.getState().flushStreamingBuffer();
+        store.setIsStreaming(false);
+        store.setIsLoading(false);
+        store.setStreamingContent("");
         return;
       }
       const { toast } = await import("sonner");
       toast.error("Failed to send message");
-      setIsLoading(false);
-      setIsStreaming(false);
+      store.setIsLoading(false);
+      store.setIsStreaming(false);
     }
   };
 

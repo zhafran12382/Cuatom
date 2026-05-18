@@ -1,13 +1,19 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, lazy, Suspense } from "react";
 import { useChatStore } from "@/stores/chat-store";
 import { useConversations } from "@/hooks/use-conversations";
 import { Button } from "@/components/ui/button";
-import { ChatSettings } from "./chat-settings";
 import { ModelSelector } from "./model-selector";
 import { Menu, Settings2, Download } from "lucide-react";
 import type { Conversation } from "@/types";
+
+// Lazy-load the heavy settings dialog. It pulls in Dialog, Select, Textarea,
+// and a long form — about 325 lines of UI we don't need until the user
+// taps the gear icon.
+const ChatSettings = lazy(() =>
+  import("./chat-settings").then((m) => ({ default: m.ChatSettings }))
+);
 
 interface ChatHeaderProps {
   conversation?: Conversation | null;
@@ -19,7 +25,14 @@ export function ChatHeader({ conversation }: ChatHeaderProps) {
   const [editingTitle, setEditingTitle] = useState(false);
   const [titleValue, setTitleValue] = useState(conversation?.title || "");
   const exportRef = useRef<HTMLDivElement>(null);
-  const { providers, models, setSidebarOpen, sidebarOpen } = useChatStore();
+
+  // Granular selectors — chat header should NOT re-render on every streaming
+  // chunk just because it lives in the same store as streamingContent.
+  const providers = useChatStore((s) => s.providers);
+  const models = useChatStore((s) => s.models);
+  const setSidebarOpen = useChatStore((s) => s.setSidebarOpen);
+  const sidebarOpen = useChatStore((s) => s.sidebarOpen);
+
   const { updateConversation } = useConversations();
 
   // Close export dropdown on outside click
@@ -210,11 +223,15 @@ export function ChatHeader({ conversation }: ChatHeaderProps) {
         </Button>
       </div>
 
-      <ChatSettings
-        open={settingsOpen}
-        onOpenChange={setSettingsOpen}
-        conversation={conversation}
-      />
+      <Suspense fallback={null}>
+        {settingsOpen && (
+          <ChatSettings
+            open={settingsOpen}
+            onOpenChange={setSettingsOpen}
+            conversation={conversation}
+          />
+        )}
+      </Suspense>
     </>
   );
 }

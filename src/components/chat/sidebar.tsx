@@ -36,7 +36,11 @@ export function Sidebar() {
   const [search, setSearch] = useState("");
   const [menuOpen, setMenuOpen] = useState<string | null>(null);
   const menuRef = useRef<HTMLDivElement>(null);
-  const { activeConversationId, setSidebarOpen } = useChatStore();
+
+  // Subscribe granularly so streaming updates don't re-render the whole list.
+  const activeConversationId = useChatStore((s) => s.activeConversationId);
+  const setSidebarOpen = useChatStore((s) => s.setSidebarOpen);
+
   const {
     conversations,
     createConversation,

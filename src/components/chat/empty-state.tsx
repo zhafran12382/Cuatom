@@ -51,9 +51,12 @@ const QUICK_STARTS: QuickStart[] = [
 ];
 
 export function EmptyState() {
-  const { setSidebarOpen, sidebarOpen, providers } = useChatStore();
-  const { createConversation, selectConversation } = useConversations();
+  // Subscribe granularly so this stays cheap to render.
+  const setSidebarOpen = useChatStore((s) => s.setSidebarOpen);
+  const sidebarOpen = useChatStore((s) => s.sidebarOpen);
+  const providers = useChatStore((s) => s.providers);
 
+  const { createConversation, selectConversation } = useConversations();
   const hasProviders = providers.length > 0;
 
   const handleQuickStart = async (prompt: string) => {

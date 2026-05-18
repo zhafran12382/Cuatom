@@ -9,25 +9,24 @@ import { useModels } from "@/hooks/use-models";
 import { useConversations } from "@/hooks/use-conversations";
 
 export function ChatLayout() {
-  const {
-    sidebarOpen,
-    setSidebarOpen,
-    conversations,
-    activeConversationId,
-    providers,
-  } = useChatStore();
+  // Subscribe to ONLY the slices this component needs. Subscribing to the
+  // whole store re-renders everything during streaming.
+  const sidebarOpen = useChatStore((s) => s.sidebarOpen);
+  const setSidebarOpen = useChatStore((s) => s.setSidebarOpen);
+  const conversations = useChatStore((s) => s.conversations);
+  const activeConversationId = useChatStore((s) => s.activeConversationId);
+  const providers = useChatStore((s) => s.providers);
 
   useProviders();
   useModels();
   const { createConversation, selectConversation } = useConversations();
 
-  // Track auto-landing decisions so we don't keep firing them
   const didAutoLand = useRef(false);
 
   // Land users straight into a chat view on first load:
   //  1. If they already have conversations → open the most recently updated one
   //  2. Else if they have providers configured → auto-create a fresh chat
-  //  3. Else fall through to EmptyState (which will guide them to add a provider)
+  //  3. Else fall through to EmptyState
   useEffect(() => {
     if (didAutoLand.current) return;
     if (activeConversationId) {
@@ -54,7 +53,6 @@ export function ChatLayout() {
 
   return (
     <div className="flex h-dvh">
-      {/* Sidebar */}
       <div
         className={`${
           sidebarOpen ? "translate-x-0" : "-translate-x-full"
@@ -63,12 +61,10 @@ export function ChatLayout() {
         <Sidebar />
       </div>
 
-      {/* Main chat area */}
       <div className="flex-1 flex flex-col min-w-0 bg-background">
         <ChatArea />
       </div>
 
-      {/* Mobile sidebar overlay */}
       {sidebarOpen && (
         <div
           className="fixed inset-0 bg-black/40 backdrop-blur-sm z-40 md:hidden animate-fade-in"
