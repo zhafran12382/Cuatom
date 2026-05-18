@@ -1,13 +1,13 @@
 import { useCallback, useEffect } from "react";
 import { useChatStore } from "@/stores/chat-store";
-import type { Provider } from "@/types";
 
 export function useProviders() {
-  const { providers, setProviders } = useChatStore();
+  const providers = useChatStore((s) => s.providers);
+  const setProviders = useChatStore((s) => s.setProviders);
 
   const fetchProviders = useCallback(async () => {
     try {
-      const res = await fetch("/api/providers");
+      const res = await fetch("/api/providers", { cache: "no-store" });
       if (res.ok) {
         const data = await res.json();
         setProviders(data);
@@ -26,6 +26,7 @@ export function useProviders() {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(data),
+      cache: "no-store",
     });
     if (!res.ok) {
       const err = await res.json();
@@ -40,6 +41,7 @@ export function useProviders() {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(data),
+      cache: "no-store",
     });
     if (!res.ok) {
       const err = await res.json();
@@ -50,18 +52,27 @@ export function useProviders() {
   };
 
   const deleteProvider = async (id: string) => {
-    const res = await fetch(`/api/providers/${id}`, { method: "DELETE" });
+    const res = await fetch(`/api/providers/${id}`, {
+      method: "DELETE",
+      cache: "no-store",
+    });
     if (!res.ok) throw new Error("Failed to delete provider");
     await fetchProviders();
   };
 
   const testProvider = async (id: string) => {
-    const res = await fetch(`/api/providers/${id}/test`, { method: "POST" });
+    const res = await fetch(`/api/providers/${id}/test`, {
+      method: "POST",
+      cache: "no-store",
+    });
     return res.json();
   };
 
   const fetchModelsFromProvider = async (id: string) => {
-    const res = await fetch(`/api/providers/${id}/fetch-models`, { method: "POST" });
+    const res = await fetch(`/api/providers/${id}/fetch-models`, {
+      method: "POST",
+      cache: "no-store",
+    });
     return res.json();
   };
 

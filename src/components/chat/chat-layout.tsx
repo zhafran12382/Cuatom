@@ -24,9 +24,13 @@ export function ChatLayout() {
   const didAutoLand = useRef(false);
 
   // Land users straight into a chat view on first load:
-  //  1. If they already have conversations → open the most recently updated one
-  //  2. Else if they have providers configured → auto-create a fresh chat
-  //  3. Else fall through to EmptyState
+  //  1. If they already have an active conversation → leave it alone
+  //  2. Else if conversations exist → open the most recently updated one
+  //  3. Else if providers configured → auto-create a fresh chat
+  //  4. Else (no providers yet) → still create a parked chat shell so the
+  //     UI looks like a chat instead of a setup page; the header will
+  //     surface a "Setup needed" hint and the quick-starts in EmptyState
+  //     guide them to add a provider.
   useEffect(() => {
     if (didAutoLand.current) return;
     if (activeConversationId) {

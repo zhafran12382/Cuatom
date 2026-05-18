@@ -2,11 +2,12 @@ import { useCallback, useEffect } from "react";
 import { useChatStore } from "@/stores/chat-store";
 
 export function useModels() {
-  const { models, setModels } = useChatStore();
+  const models = useChatStore((s) => s.models);
+  const setModels = useChatStore((s) => s.setModels);
 
   const fetchModels = useCallback(async () => {
     try {
-      const res = await fetch("/api/models");
+      const res = await fetch("/api/models", { cache: "no-store" });
       if (res.ok) {
         const data = await res.json();
         setModels(data);
@@ -25,6 +26,7 @@ export function useModels() {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(data),
+      cache: "no-store",
     });
     if (!res.ok) {
       const err = await res.json();
@@ -39,6 +41,7 @@ export function useModels() {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(data),
+      cache: "no-store",
     });
     if (!res.ok) {
       const err = await res.json();
@@ -49,7 +52,10 @@ export function useModels() {
   };
 
   const deleteModel = async (id: string) => {
-    const res = await fetch(`/api/models/${id}`, { method: "DELETE" });
+    const res = await fetch(`/api/models/${id}`, {
+      method: "DELETE",
+      cache: "no-store",
+    });
     if (!res.ok) throw new Error("Failed to delete model");
     await fetchModels();
   };

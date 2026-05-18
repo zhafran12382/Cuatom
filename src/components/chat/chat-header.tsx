@@ -107,12 +107,17 @@ export function ChatHeader({ conversation }: ChatHeaderProps) {
   // Missing provider/model indicator
   const needsSetup = conversation && (!conversation.providerId || !conversation.modelId);
 
-  const handleModelChange = (next: { providerId: string | null; modelId: string | null }) => {
+  const handleModelChange = async (next: { providerId: string | null; modelId: string | null }) => {
     if (!conversation) return;
-    updateConversation(conversation.id, {
-      providerId: next.providerId,
-      modelId: next.modelId,
-    });
+    try {
+      await updateConversation(conversation.id, {
+        providerId: next.providerId,
+        modelId: next.modelId,
+      });
+    } catch (err) {
+      const { toast } = await import("sonner");
+      toast.error((err as Error).message || "Failed to switch model");
+    }
   };
 
   return (
