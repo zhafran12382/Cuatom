@@ -5,6 +5,8 @@ import { Check, ChevronDown, Search, Sparkles, Star, X, Zap } from "lucide-react
 import { cn } from "@/lib/utils";
 import type { Model, Provider } from "@/types";
 
+const MAX_RENDERED_MODELS = 80;
+
 interface ModelSelectorProps {
   providers: Provider[];
   models: Model[];
@@ -75,12 +77,17 @@ export function ModelSelector({
     }
   }, [open]);
 
-  // Build a deduplicated list of items keyed on (providerId + modelId)
+  // Build a deduplicated list of items keyed on (providerId + modelId).
+  // Keep this O(providers + models); the earlier providers.find/models.some
+  // loops become very expensive when a provider exposes hundreds of models.
   const items: NormalizedItem[] = useMemo(() => {
+    const providerById = new Map(providers.map((p) => [p.id, p]));
+    const providerIdsWithModels = new Set<string>();
     const byKey = new Map<string, NormalizedItem>();
 
     for (const m of models) {
-      const provider = providers.find((p) => p.id === m.providerId);
+      providerIdsWithModels.add(m.providerId);
+      const provider = providerById.get(m.providerId);
       if (!provider) continue;
       const key = `${m.providerId}::${m.modelId}`;
       const existing = byKey.get(key);
@@ -100,7 +107,7 @@ export function ModelSelector({
     // For providers with no model rows yet, surface defaultModelId as a fallback.
     for (const p of providers) {
       if (!p.isActive) continue;
-      const hasAny = models.some((m) => m.providerId === p.id);
+      const hasAny = providerIdsWithModels.has(p.id);
       if (!hasAny && p.defaultModelId) {
         const key = `${p.id}::${p.defaultModelId}`;
         if (!byKey.has(key)) {
@@ -120,8 +127,10 @@ export function ModelSelector({
     return Array.from(byKey.values());
   }, [models, providers]);
 
-  // Filter by search
+  // Filter by search. When the menu is closed, skip expensive filter/group work
+  // entirely; the closed button only needs activeItem below.
   const filtered = useMemo(() => {
+    if (!open) return [];
     const q = search.trim().toLowerCase();
     if (!q) return items;
     return items.filter(
@@ -130,12 +139,19 @@ export function ModelSelector({
         it.modelId.toLowerCase().includes(q) ||
         it.providerName.toLowerCase().includes(q)
     );
-  }, [items, search]);
+  }, [items, open, search]);
+
+  const renderedItems = useMemo(
+    () => filtered.slice(0, MAX_RENDERED_MODELS),
+    [filtered]
+  );
+
+  const hiddenItemCount = Math.max(0, filtered.length - renderedItems.length);
 
   // Group by provider, favorites first within each group
   const grouped = useMemo(() => {
     const groups = new Map<string, { providerId: string; providerName: string; items: NormalizedItem[] }>();
-    for (const it of filtered) {
+    for (const it of renderedItems) {
       const g = groups.get(it.providerId);
       if (g) {
         g.items.push(it);
@@ -156,7 +172,7 @@ export function ModelSelector({
     return Array.from(groups.values()).sort((a, b) =>
       a.providerName.localeCompare(b.providerName)
     );
-  }, [filtered]);
+  }, [renderedItems]);
 
   // Currently selected display
   const activeItem = useMemo(() => {
@@ -339,6 +355,11 @@ export function ModelSelector({
                 })}
               </div>
             ))}
+            {hiddenItemCount > 0 && (
+              <div className="px-3 py-2 text-[11px] text-muted-foreground/70 text-center">
+                Showing first {MAX_RENDERED_MODELS} of {filtered.length}. Search to narrow results.
+              </div>
+            )}
           </div>
 
           {/* Footer hint */}

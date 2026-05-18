@@ -1,17 +1,16 @@
 "use client";
 
 import { memo, useEffect, useRef } from "react";
+import { useChatStore } from "@/stores/chat-store";
 import { MessageBubble } from "./message-bubble";
 import { TypingIndicator } from "./typing-indicator";
 import type { Message } from "@/types";
 
-interface MessageListProps {
-  messages: Message[];
-  isStreaming: boolean;
-  streamingContent: string;
-}
+function MessageListImpl() {
+  const messages = useChatStore((s) => s.messages);
+  const isStreaming = useChatStore((s) => s.isStreaming);
+  const streamingContent = useChatStore((s) => s.streamingContent);
 
-function MessageListImpl({ messages, isStreaming, streamingContent }: MessageListProps) {
   const bottomRef = useRef<HTMLDivElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   // Track whether the user is "stuck to bottom" — if they scrolled up to read
@@ -32,12 +31,12 @@ function MessageListImpl({ messages, isStreaming, streamingContent }: MessageLis
 
   useEffect(() => {
     if (!stickToBottom.current) return;
-    // Use auto (instant) scroll during active streaming — smooth scroll
-    // queues up animations and feels worse on slow devices.
+    // Use auto (instant) scroll during active streaming — smooth scroll queues
+    // animations and feels worse on slow devices.
     bottomRef.current?.scrollIntoView({
       behavior: isStreaming ? "auto" : "smooth",
     });
-  }, [messages, streamingContent, isStreaming]);
+  }, [messages.length, streamingContent, isStreaming]);
 
   const showTyping = shouldShowTyping(messages, isStreaming);
 
@@ -51,7 +50,7 @@ function MessageListImpl({ messages, isStreaming, streamingContent }: MessageLis
           <MessageBubble key={msg.id} message={msg} />
         ))}
 
-        {/* Streaming message */}
+        {/* Streaming message: rendered as lightweight text by MessageBubble */}
         {isStreaming && streamingContent && (
           <MessageBubble
             message={{
@@ -66,7 +65,7 @@ function MessageListImpl({ messages, isStreaming, streamingContent }: MessageLis
               totalTokens: null,
               cost: null,
               error: null,
-              createdAt: new Date().toISOString(),
+              createdAt: "",
             }}
             isStreaming
           />

@@ -64,7 +64,11 @@ function MessageBubbleImpl({ message, isStreaming }: MessageBubbleProps) {
               <AlertCircle className="h-4 w-4 text-red-400 mt-0.5 flex-shrink-0" />
               <p className="text-sm">{message.error}</p>
             </div>
-          ) : isUser ? (
+          ) : isUser || isStreaming ? (
+            // During streaming, render plain text only. Parsing markdown on
+            // every token is one of the biggest mobile jank sources; the final
+            // persisted assistant bubble gets full markdown rendering after the
+            // stream finishes.
             <p className="whitespace-pre-wrap">{message.content}</p>
           ) : (
             <MarkdownRenderer content={message.content} />

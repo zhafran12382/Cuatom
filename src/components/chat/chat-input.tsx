@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useEffect, useCallback } from "react";
+import { memo, useState, useRef, useEffect, useCallback } from "react";
 import { Send, Square } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
@@ -10,7 +10,7 @@ interface ChatInputProps {
   onStop: () => void;
 }
 
-export function ChatInput({ onSend, isLoading, onStop }: ChatInputProps) {
+function ChatInputImpl({ onSend, isLoading, onStop }: ChatInputProps) {
   const [input, setInput] = useState("");
   const [isFocused, setIsFocused] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -65,7 +65,6 @@ export function ChatInput({ onSend, isLoading, onStop }: ChatInputProps) {
             placeholder="Ask anything..."
             rows={1}
             className="flex-1 resize-none bg-transparent text-[15px] leading-relaxed outline-none placeholder:text-muted-foreground/60 max-h-[150px] py-1"
-            disabled={isLoading}
           />
 
           {/* Send / Stop button */}
@@ -106,3 +105,5 @@ export function ChatInput({ onSend, isLoading, onStop }: ChatInputProps) {
     </div>
   );
 }
+
+export const ChatInput = memo(ChatInputImpl);
